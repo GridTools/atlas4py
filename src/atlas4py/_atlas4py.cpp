@@ -1,0 +1,395 @@
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
+#include "atlas/functionspace.h"
+#include "atlas/grid.h"
+#include "atlas/mesh.h"
+#include "atlas/mesh/actions/BuildEdges.h"
+#include "atlas/meshgenerator.h"
+#include "atlas/output/Gmsh.h"
+
+#include "eckit/value/Value.h"
+
+namespace py = ::pybind11;
+using namespace atlas;
+using namespace pybind11::literals;
+
+namespace pybind11 {
+namespace detail {
+template <>
+struct type_caster<atlas::array::ArrayStrides>
+    : public type_caster<std::vector<atlas::array::ArrayStrides::value_type>> {
+};
+template <>
+struct type_caster<atlas::array::ArrayShape>
+    : public type_caster<std::vector<atlas::array::ArrayShape::value_type>> {};
+
+}  // namespace detail
+}  // namespace pybind11
+
+namespace {
+
+py::object toPyObject(eckit::Value const& v) {
+    if (v.isBool())
+        return py::bool_(v.as<bool>());
+    else if (v.isNumber())
+        return py::int_(v.as<long long>());
+    else if (v.isDouble())
+        return py::float_(v.as<double>());
+    else if (v.isMap()) {
+        py::dict ret;
+        auto const& map = v.as<eckit::ValueMap>();
+        for (auto const& [k, v] : map) {
+            ret[k.as<std::string>().c_str()] = toPyObject(v);
+        }
+        return ret;
+    } else if (v.isList()) {
+        py::list ret;
+        auto const& list = v.as<eckit::ValueList>();
+        for (auto const& v : list) ret.append(toPyObject(v));
+        return ret;
+    } else if (v.isString())
+        return py::str(v.as<std::string>());
+    else
+        throw std::out_of_range("type of value unsupported (" + v.typeName() +
+                                ")");
+}
+std::string atlasToPybind(array::DataType const& dt) {
+    switch (dt.kind()) {
+        case array::DataType::KIND_INT32:
+            return py::format_descriptor<int32_t>::format();
+        case array::DataType::KIND_INT64:
+            return py::format_descriptor<int64_t>::format();
+        case array::DataType::KIND_REAL32:
+            return py::format_descriptor<float>::format();
+        case array::DataType::KIND_REAL64:
+            return py::format_descriptor<double>::format();
+        case array::DataType::KIND_UINT64:
+            return py::format_descriptor<uint64_t>::format();
+        default:
+            return "";
+    }
+}
+array::DataType pybindToAtlas(py::dtype const& dtype) {
+    if (dtype.is(py::dtype::of<int32_t>()))
+        return array::DataType::KIND_INT32;
+    else if (dtype.is(py::dtype::of<int64_t>()))
+        return array::DataType::KIND_INT64;
+    else if (dtype.is(py::dtype::of<float>()))
+        return array::DataType::KIND_REAL32;
+    else if (dtype.is(py::dtype::of<double>()))
+        return array::DataType::KIND_REAL64;
+    else if (dtype.is(py::dtype::of<uint64_t>()))
+        return array::DataType::KIND_UINT64;
+    else
+        return {0};
+}
+}  // namespace
+
+PYBIND11_MODULE(_atlas4py, m) {
+    py::class_<PointLonLat>(m, "PointLonLat")
+        .def(py::init([](double lon, double lat) {
+                 return PointLonLat({lon, lat});
+             }),
+             "lon"_a, "lat"_a)
+        .def_property_readonly(
+            "lon", py::overload_cast<>(&PointLonLat::lon, py::const_))
+        .def_property_readonly(
+            "lat", py::overload_cast<>(&PointLonLat::lat, py::const_))
+        .def("__repr__", [](PointLonLat const& p) {
+            return "_atlas4py.PointLonLat(lon=" + std::to_string(p.lon()) +
+                   ", lat=" + std::to_string(p.lat()) + ")";
+        });
+    py::class_<PointXY>(m, "PointXY")
+        .def(py::init([](double x, double y) {
+                 return PointXY({x, y});
+             }),
+             "x"_a, "y"_a)
+        .def_property_readonly("x",
+                               py::overload_cast<>(&PointXY::x, py::const_))
+        .def_property_readonly("y",
+                               py::overload_cast<>(&PointXY::y, py::const_))
+        .def("__repr__", [](PointXY const& p) {
+            return "_atlas4py.PointXY(x=" + std::to_string(p.x()) +
+                   ", y=" + std::to_string(p.y()) + ")";
+        });
+
+    py::class_<Projection>(m, "Projection")
+        .def("__repr__", [](Projection const& p) {
+            return "_atlas4py.Projection("_s +
+                   py::str(toPyObject(p.spec().get())) + ")"_s;
+        });
+    py::class_<Domain>(m, "Domain")
+        .def_property_readonly("type", &Domain::type)
+        .def_property_readonly("global", &Domain::global)
+        .def_property_readonly("units", &Domain::units)
+        .def("__repr__", [](Domain const& d) {
+            return "_atlas4py.Domain("_s +
+                   (d ? py::str(toPyObject(d.spec().get())) : "") + ")"_s;
+        });
+    py::class_<RectangularDomain, Domain>(m, "RectangularDomain")
+        .def(py::init([](std::tuple<double, double> xInterval,
+                         std::tuple<double, double> yInterval) {
+                 auto [xFrom, xTo] = xInterval;
+                 auto [yFrom, yTo] = xInterval;
+                 return RectangularDomain({xFrom, xTo}, {yFrom, yTo});
+             }),
+             "x_interval"_a, "y_interval"_a);
+
+    py::class_<Grid>(m, "Grid")
+        .def_property_readonly("name", &Grid::name)
+        .def_property_readonly("uid", &Grid::uid)
+        .def_property_readonly("size", &Grid::size)
+        .def_property_readonly("projection", &Grid::projection)
+        .def_property_readonly("domain", &Grid::domain)
+        .def("__repr__", [](Grid const& g) {
+            return "_atlas4py.Grid("_s + py::str(toPyObject(g.spec().get())) +
+                   ")"_s;
+        });
+
+    py::class_<grid::Spacing>(m, "Spacing")
+        .def("__len__", &grid::Spacing::size)
+        .def("__getitem__", &grid::Spacing::operator[])
+        .def("__repr__", [](grid::Spacing const& spacing) {
+            return "_atlas4py.Spacing("_s +
+                   py::str(toPyObject(spacing.spec().get())) + ")"_s;
+        });
+    py::class_<grid::LinearSpacing, grid::Spacing>(m, "LinearSpacing")
+        .def(py::init([](double start, double stop, long N, bool endpoint) {
+                 return grid::LinearSpacing{start, stop, N, endpoint};
+             }),
+             "start"_a, "stop"_a, "N"_a, "endpoint_included"_a = true);
+    py::class_<grid::GaussianSpacing, grid::Spacing>(m, "GaussianSpacing")
+        .def(py::init([](long N) { return grid::GaussianSpacing{N}; }), "N"_a);
+
+    py::class_<StructuredGrid, Grid>(m, "StructuredGrid")
+        .def(py::init([](std::string const& s, Domain const& d) {
+                 return StructuredGrid{s, d};
+             }),
+             "gridname"_a, "domain"_a = Domain())
+        .def(py::init([](grid::LinearSpacing xSpacing, grid::Spacing ySpacing) {
+                 return StructuredGrid{xSpacing, ySpacing};
+             }),
+             "x_spacing"_a, "y_spacing"_a)
+        .def(py::init([](std::vector<grid::LinearSpacing> xLinearSpacings,
+                         grid::Spacing ySpacing, Domain const& d) {
+                 std::vector<grid::Spacing> xSpacings;
+                 std::copy(xLinearSpacings.begin(), xLinearSpacings.end(),
+                           std::back_inserter(xSpacings));
+                 return StructuredGrid{xSpacings, ySpacing, Projection(), d};
+             }),
+             "x_spacings"_a, "y_spacing"_a, "domain"_a = Domain())
+        .def_property_readonly("valid", &StructuredGrid::valid)
+        .def_property_readonly("ny", &StructuredGrid::ny)
+        .def_property_readonly(
+            "nx", py::overload_cast<>(&StructuredGrid::nx, py::const_))
+        .def_property_readonly("nxmax", &StructuredGrid::nxmax)
+        .def_property_readonly(
+            "y", py::overload_cast<>(&StructuredGrid::y, py::const_))
+        .def_property_readonly("x", &StructuredGrid::x)
+        .def("xy",
+             py::overload_cast<idx_t, idx_t>(&StructuredGrid::xy, py::const_),
+             "i"_a, "j"_a)
+        .def("lonlat",
+             py::overload_cast<idx_t, idx_t>(&StructuredGrid::lonlat,
+                                             py::const_),
+             "i"_a, "j"_a)
+        .def_property_readonly("reduced", &StructuredGrid::reduced)
+        .def_property_readonly("regular", &StructuredGrid::regular)
+        .def_property_readonly("periodic", &StructuredGrid::periodic);
+
+    py::class_<StructuredMeshGenerator>(m, "StructuredMeshGenerator")
+        .def(py::init())
+        .def("generate", py::overload_cast<Grid const&>(
+                             &StructuredMeshGenerator::generate, py::const_));
+
+    py::class_<Mesh>(m, "Mesh")
+        .def_property_readonly("grid", &Mesh::grid)
+        .def_property_readonly("projection", &Mesh::projection)
+        .def_property("nodes", py::overload_cast<>(&Mesh::nodes, py::const_),
+                      py::overload_cast<>(&Mesh::nodes))
+        .def_property("edges", py::overload_cast<>(&Mesh::edges, py::const_),
+                      py::overload_cast<>(&Mesh::edges))
+        .def_property("cells", py::overload_cast<>(&Mesh::cells, py::const_),
+                      py::overload_cast<>(&Mesh::cells));
+    m.def("build_edges", [](Mesh& mesh) {
+        mesh::actions::build_edges(mesh, option::pole_edges(false));
+    });
+    m.def("build_node_to_edge_connectivity",
+          py::overload_cast<Mesh&>(
+              &mesh::actions::build_node_to_edge_connectivity));
+
+    py::class_<mesh::IrregularConnectivity>(m, "IrregularConnectivity")
+        .def("__getitem__",
+             [](mesh::IrregularConnectivity const& c,
+                std::tuple<idx_t, idx_t> const& pos) {
+                 auto const& [row, col] = pos;
+                 return c(row, col);
+             })
+        .def_property_readonly("rows", &mesh::IrregularConnectivity::rows)
+        .def("cols", &mesh::IrregularConnectivity::cols, "row_idx"_a);
+    py::class_<mesh::MultiBlockConnectivity>(m, "MultiBlockConnectivity")
+        .def("__getitem__",
+             [](mesh::MultiBlockConnectivity const& c,
+                std::tuple<idx_t, idx_t> const& pos) {
+                 auto const& [row, col] = pos;
+                 return c(row, col);
+             })
+        .def("__getitem__",
+             [](mesh::MultiBlockConnectivity const& c,
+                std::tuple<idx_t, idx_t, idx_t> const& pos) {
+                 auto const& [block, row, col] = pos;
+                 return c(block, row, col);
+             })
+        .def_property_readonly("blocks", &mesh::MultiBlockConnectivity::blocks)
+        .def("block", py::overload_cast<idx_t>(
+                          &mesh::MultiBlockConnectivity::block, py::const_));
+    py::class_<mesh::BlockConnectivity>(m, "BlockConnectivity")
+        .def("__getitem__",
+             [](mesh::BlockConnectivity const& c,
+                std::tuple<idx_t, idx_t> const& pos) {
+                 auto const& [row, col] = pos;
+                 return c(row, col);
+             })
+        .def_property_readonly("rows", &mesh::BlockConnectivity::rows)
+        .def_property_readonly("cols", &mesh::BlockConnectivity::cols);
+
+    py::class_<mesh::Nodes>(m, "Nodes")
+        .def_property_readonly("size", &mesh::Nodes::size)
+        .def_property_readonly(
+            "edge_connectivity",
+            py::overload_cast<>(&mesh::Nodes::edge_connectivity, py::const_))
+        .def_property_readonly(
+            "lonlat", py::overload_cast<>(&Mesh::Nodes::lonlat, py::const_));
+    py::class_<mesh::HybridElements>(m, "HybridElements")
+        .def_property_readonly("size", &mesh::HybridElements::size)
+        .def("nb_nodes", &mesh::HybridElements::nb_nodes)
+        .def("nb_edges", &mesh::HybridElements::nb_edges)
+        .def_property_readonly(
+            "node_connectivity",
+            py::overload_cast<>(&mesh::HybridElements::node_connectivity,
+                                py::const_))
+        .def_property_readonly(
+            "edge_connectivity",
+            py::overload_cast<>(&mesh::HybridElements::edge_connectivity,
+                                py::const_));
+
+    auto m_fs = m.def_submodule("functionspace");
+    py::class_<FunctionSpace>(m_fs, "FunctionSpace")
+        .def_property_readonly("size", &FunctionSpace::size)
+        .def_property_readonly("type", &FunctionSpace::type)
+        .def("create_field",
+             [](FunctionSpace const& fs, std::optional<std::string> const& name,
+                std::optional<int> levels, py::object dtype) {
+                 util::Config config;
+                 if (name) config = config | option::name(*name);
+                 // TODO what does it mean in atlas if levels is not set?
+                 if (levels) config = config | option::levels(*levels);
+                 config = config | option::datatype(pybindToAtlas(
+                                       py::dtype::from_args(dtype)));
+                 return fs.createField(config);
+             },
+             "name"_a = std::nullopt, "levels"_a = std::nullopt, "dtype"_a);
+    py::class_<functionspace::EdgeColumns, FunctionSpace>(m_fs, "EdgeColumns")
+        .def(py::init(
+            [](Mesh const& m) { return functionspace::EdgeColumns(m); }))
+        .def_property_readonly("nb_edges",
+                               &functionspace::EdgeColumns::nb_edges)
+        .def_property_readonly("mesh", &functionspace::EdgeColumns::mesh)
+        .def_property_readonly("edges", &functionspace::EdgeColumns::edges)
+        .def_property_readonly("valid", &functionspace::EdgeColumns::valid);
+    py::class_<functionspace::NodeColumns, FunctionSpace>(m_fs, "NodeColumns")
+        .def(py::init(
+            [](Mesh const& m) { return functionspace::NodeColumns(m); }))
+        .def_property_readonly("nb_nodes",
+                               &functionspace::NodeColumns::nb_nodes)
+        .def_property_readonly("mesh", &functionspace::NodeColumns::mesh)
+        .def_property_readonly("nodes", &functionspace::NodeColumns::nodes)
+        .def_property_readonly("valid", &functionspace::NodeColumns::valid);
+    py::class_<functionspace::CellColumns, FunctionSpace>(m_fs, "CellColumns")
+        .def(py::init([](Mesh const& m, int halo) {
+                 return functionspace::CellColumns(
+                     m, util::Config()("halo", halo));
+             }),
+             "mesh"_a, "halo"_a = 0)
+        .def_property_readonly("nb_cells",
+                               &functionspace::CellColumns::nb_cells)
+        .def_property_readonly("mesh", &functionspace::CellColumns::mesh)
+        .def_property_readonly("cells", &functionspace::CellColumns::cells)
+        .def_property_readonly("valid", &functionspace::CellColumns::valid);
+
+    py::class_<util::Metadata>(m, "Metadata")
+        .def_property_readonly("keys", &util::Metadata::keys)
+        .def("__setitem__",
+             [](util::Metadata& metadata, std::string const& key,
+                py::object value) {
+                 if (py::isinstance<py::bool_>(value))
+                     metadata.set(key, value.cast<bool>());
+                 else if (py::isinstance<py::int_>(value))
+                     metadata.set(key, value.cast<long long>());
+                 else if (py::isinstance<py::float_>(value))
+                     metadata.set(key, value.cast<double>());
+                 else if (py::isinstance<py::str>(value))
+                     metadata.set(key, value.cast<std::string>());
+                 else
+                     throw std::out_of_range("type of value unsupported");
+             })
+        .def(
+            "__getitem__",
+            [](util::Metadata& metadata, std::string const& key) -> py::object {
+                if (!metadata.has(key))
+                    throw std::out_of_range("key <" + key +
+                                            "> could not be found");
+
+                // TODO: We have to query metadata.get() even though this should
+                // not be done (see comment in Config::get). We cannot
+                // avoid this right now because otherwise we cannot query
+                // the type of the underlying data.
+                return toPyObject(metadata.get().element(key));
+            })
+        .def("__repr__", [](util::Metadata const& metadata) {
+            return "_atlas4py.Metadata("_s +
+                   py::str(toPyObject(metadata.get())) + ")"_s;
+        });
+
+    py::class_<Field>(m, "Field", py::buffer_protocol())
+        .def_property_readonly("name", &Field::name)
+        .def_property_readonly("strides", &Field::strides)
+        .def_property_readonly("shape",
+                               py::overload_cast<>(&Field::shape, py::const_))
+        .def_property_readonly("size", &Field::size)
+        .def_property_readonly("rank", &Field::rank)
+        .def_property("metadata",
+                      py::overload_cast<>(&Field::metadata, py::const_),
+                      py::overload_cast<>(&Field::metadata))
+        .def_buffer([](Field& f) {
+            auto strides = f.strides();
+            std::transform(strides.begin(), strides.end(), strides.begin(),
+                           [&](auto const& stride) {
+                               return stride * f.datatype().size();
+                           });
+            return py::buffer_info(f.storage(), f.datatype().size(),
+                                   atlasToPybind(f.datatype()), f.rank(),
+                                   f.shape(), strides);
+        });
+
+    py::class_<output::Gmsh>(m, "Gmsh")
+        .def(py::init(
+                 [](std::string const& path) { return output::Gmsh{path}; }),
+             "path"_a)
+        .def("__enter__", [](output::Gmsh& gmsh) { return gmsh; })
+        .def("__exit__",
+             [](output::Gmsh& gmsh, py::object exc_type, py::object exc_val,
+                py::object exc_tb) { gmsh.reset(nullptr); })
+        .def("write",
+             [](output::Gmsh& gmsh, Mesh const& mesh) { gmsh.write(mesh); },
+             "mesh"_a)
+        .def("write",
+             [](output::Gmsh& gmsh, Field const& field) { gmsh.write(field); },
+             "field"_a)
+        .def("write",
+             [](output::Gmsh& gmsh, Field const& field,
+                FunctionSpace const& fs) { gmsh.write(field, fs); },
+             "field"_a, "functionspace"_a);
+}

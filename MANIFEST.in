@@ -1,0 +1,3 @@
+include LICENSE pyproject.toml CMakeLists.txt MANIFEST.in *.md 
+recursive-include src/atlas4py *.c *.cpp *.cxx *.h *.hpp *.hxx *.txt *.cmake
+prune .venv
