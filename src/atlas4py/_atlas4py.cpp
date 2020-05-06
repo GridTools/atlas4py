@@ -85,14 +85,14 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
     else if ( dtype.is( py::dtype::of<uint64_t>() ) )
         return array::DataType::KIND_UINT64;
     else
-        return { 0 };
+        return {0};
 }
 }  // namespace
 
 PYBIND11_MODULE( _atlas4py, m ) {
     py::class_<PointLonLat>( m, "PointLonLat" )
         .def( py::init( []( double lon, double lat ) {
-                  return PointLonLat( { lon, lat } );
+                  return PointLonLat( {lon, lat} );
               } ),
               "lon"_a, "lat"_a )
         .def_property_readonly( "lon", py::overload_cast<>( &PointLonLat::lon, py::const_ ) )
@@ -103,7 +103,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         } );
     py::class_<PointXY>( m, "PointXY" )
         .def( py::init( []( double x, double y ) {
-                  return PointXY( { x, y } );
+                  return PointXY( {x, y} );
               } ),
               "x"_a, "y"_a )
         .def_property_readonly( "x", py::overload_cast<>( &PointXY::x, py::const_ ) )
@@ -126,7 +126,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def( py::init( []( std::tuple<double, double> xInterval, std::tuple<double, double> yInterval ) {
                   auto [xFrom, xTo] = xInterval;
                   auto [yFrom, yTo] = xInterval;
-                  return RectangularDomain( { xFrom, xTo }, { yFrom, yTo } );
+                  return RectangularDomain( {xFrom, xTo}, {yFrom, yTo} );
               } ),
               "x_interval"_a, "y_interval"_a );
 
@@ -148,26 +148,26 @@ PYBIND11_MODULE( _atlas4py, m ) {
         } );
     py::class_<grid::LinearSpacing, grid::Spacing>( m, "LinearSpacing" )
         .def( py::init( []( double start, double stop, long N, bool endpoint ) {
-                  return grid::LinearSpacing{ start, stop, N, endpoint };
+                  return grid::LinearSpacing{start, stop, N, endpoint};
               } ),
               "start"_a, "stop"_a, "N"_a, "endpoint_included"_a = true );
     py::class_<grid::GaussianSpacing, grid::Spacing>( m, "GaussianSpacing" )
-        .def( py::init( []( long N ) { return grid::GaussianSpacing{ N }; } ), "N"_a );
+        .def( py::init( []( long N ) { return grid::GaussianSpacing{N}; } ), "N"_a );
 
     py::class_<StructuredGrid, Grid>( m, "StructuredGrid" )
         .def( py::init( []( std::string const& s, Domain const& d ) {
-                  return StructuredGrid{ s, d };
+                  return StructuredGrid{s, d};
               } ),
               "gridname"_a, "domain"_a = Domain() )
         .def( py::init( []( grid::LinearSpacing xSpacing, grid::Spacing ySpacing ) {
-                  return StructuredGrid{ xSpacing, ySpacing };
+                  return StructuredGrid{xSpacing, ySpacing};
               } ),
               "x_spacing"_a, "y_spacing"_a )
         .def(
             py::init( []( std::vector<grid::LinearSpacing> xLinearSpacings, grid::Spacing ySpacing, Domain const& d ) {
                 std::vector<grid::Spacing> xSpacings;
                 std::copy( xLinearSpacings.begin(), xLinearSpacings.end(), std::back_inserter( xSpacings ) );
-                return StructuredGrid{ xSpacings, ySpacing, Projection(), d };
+                return StructuredGrid{xSpacings, ySpacing, Projection(), d};
             } ),
             "x_spacings"_a, "y_spacing"_a, "domain"_a = Domain() )
         .def_property_readonly( "valid", &StructuredGrid::valid )
@@ -345,7 +345,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         } );
 
     py::class_<output::Gmsh>( m, "Gmsh" )
-        .def( py::init( []( std::string const& path ) { return output::Gmsh{ path }; } ), "path"_a )
+        .def( py::init( []( std::string const& path ) { return output::Gmsh{path}; } ), "path"_a )
         .def( "__enter__", []( output::Gmsh& gmsh ) { return gmsh; } )
         .def( "__exit__", []( output::Gmsh& gmsh, py::object exc_type, py::object exc_val,
                               py::object exc_tb ) { gmsh.reset( nullptr ); } )
