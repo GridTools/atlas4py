@@ -1,4 +1,3 @@
-#include <atlas/option/Options.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -9,8 +8,8 @@
 #include "atlas/mesh/actions/BuildDualMesh.h"
 #include "atlas/mesh/actions/BuildEdges.h"
 #include "atlas/meshgenerator.h"
+#include "atlas/option/Options.h"
 #include "atlas/output/Gmsh.h"
-
 #include "eckit/value/Value.h"
 
 namespace py = ::pybind11;
