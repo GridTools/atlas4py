@@ -182,9 +182,8 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "regular", &StructuredGrid::regular )
         .def_property_readonly( "periodic", &StructuredGrid::periodic );
 
-    // This is a duplicate of metadata below (because same base class)
+    // TODO This is a duplicate of metadata below (because same base class)
     py::class_<util::Config>( m, "Config" )
-        // .def_property_readonly( "keys", &util::Metadata::keys )
         .def( py::init() )
         .def( "__setitem__",
               []( util::Config& config, std::string const& key, py::object value ) {
@@ -395,13 +394,6 @@ PYBIND11_MODULE( _atlas4py, m ) {
     topology.def_static( "check", &mesh::Nodes::Topology::check );
     topology.def_static( "check_all", &mesh::Nodes::Topology::check_all );
     topology.def_static( "check_any", &mesh::Nodes::Topology::check_any );
-    // static void reset( int& flags, int bit = 0 ) { flags = bit; }
-    // static void set( int& flags, int bit ) { flags |= bit; }
-    // static void unset( int& flags, int bit ) { flags &= ( ~bit ); }
-    // static void toggle( int& flags, int bit ) { flags ^= bit; }
-    // static bool check( int flags, int bits ) { return ( flags & bits ) == bits; }
-    // static bool check_all( int flags, int bits ) { return ( flags & bits ) == bits; }
-    // static bool check_any( int flags, int bits ) { return flags & bits; }
 
     py::class_<output::Gmsh>( m, "Gmsh" )
         .def( py::init( []( std::string const& path ) { return output::Gmsh{ path }; } ), "path"_a )
