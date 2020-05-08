@@ -182,7 +182,41 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "regular", &StructuredGrid::regular )
         .def_property_readonly( "periodic", &StructuredGrid::periodic );
 
+    // This is a duplicate of metadata below (because same base class)
+    py::class_<util::Config>( m, "Config" )
+        // .def_property_readonly( "keys", &util::Metadata::keys )
+        .def( py::init() )
+        .def( "__setitem__",
+              []( util::Config& config, std::string const& key, py::object value ) {
+                  if ( py::isinstance<py::bool_>( value ) )
+                      config.set( key, value.cast<bool>() );
+                  else if ( py::isinstance<py::int_>( value ) )
+                      config.set( key, value.cast<long long>() );
+                  else if ( py::isinstance<py::float_>( value ) )
+                      config.set( key, value.cast<double>() );
+                  else if ( py::isinstance<py::str>( value ) )
+                      config.set( key, value.cast<std::string>() );
+                  else
+                      throw std::out_of_range( "type of value unsupported" );
+              } )
+        .def( "__getitem__",
+              []( util::Config& config, std::string const& key ) -> py::object {
+                  if ( !config.has( key ) )
+                      throw std::out_of_range( "key <" + key + "> could not be found" );
+
+                  // TODO: We have to query metadata.get() even though this should
+                  // not be done (see comment in Config::get). We cannot
+                  // avoid this right now because otherwise we cannot query
+                  // the type of the underlying data.
+                  return toPyObject( config.get().element( key ) );
+              } )
+        .def( "__repr__", []( util::Config const& config ) {
+            return "_atlas4py.Config("_s + py::str( toPyObject( config.get() ) ) + ")"_s;
+        } );
+
     py::class_<StructuredMeshGenerator>( m, "StructuredMeshGenerator" )
+        // TODO in FunctionSpace below we expose config options, not the whole config object
+        .def( py::init( []( util::Config const& config ) { return StructuredMeshGenerator( config ); } ) )
         .def( py::init() )
         .def( "generate", py::overload_cast<Grid const&>( &StructuredMeshGenerator::generate, py::const_ ) );
 
@@ -231,12 +265,10 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "size", &mesh::Nodes::size )
         .def_property_readonly( "edge_connectivity",
                                 py::overload_cast<>( &mesh::Nodes::edge_connectivity, py::const_ ) )
-        .def_property_readonly( "lonlat", py::overload_cast<>( &Mesh::Nodes::lonlat, py::const_ ) );
-    // py::class_<mesh::Nodes>( m, "Edges" )
-    //     .def_property_readonly( "size", &mesh::Nodes::size )
-    //     // .def_property_readonly( "edge_connectivity",
-    //     //                         py::overload_cast<>( &mesh::Nodes::edge_connectivity, py::const_ ) )
-    //     .def_property_readonly( "dual_normals", py::overload_cast<>( &Mesh::Nodes::dual_normals, py::const_ ) );
+        .def_property_readonly( "lonlat", py::overload_cast<>( &Mesh::Nodes::lonlat, py::const_ ) )
+        .def(
+            "field", []( mesh::Nodes const& n, std::string const& name ) { return n.field( name ); }, "name"_a );
+
     py::class_<mesh::HybridElements>( m, "HybridElements" )
         .def_property_readonly( "size", &mesh::HybridElements::size )
         .def( "nb_nodes", &mesh::HybridElements::nb_nodes )
@@ -247,7 +279,8 @@ PYBIND11_MODULE( _atlas4py, m ) {
                                 py::overload_cast<>( &mesh::HybridElements::edge_connectivity, py::const_ ) )
         .def(
             "field", []( mesh::HybridElements const& he, std::string const& name ) { return he.field( name ); },
-            "name"_a );
+            "name"_a )
+        .def( "flags", []( mesh::HybridElements const& he ) { return he.flags(); } );
 
 
     auto m_fs = m.def_submodule( "functionspace" );
@@ -272,7 +305,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
             "name"_a = std::nullopt, "levels"_a = std::nullopt, "variables"_a = std::nullopt, "dtype"_a );
     py::class_<functionspace::EdgeColumns, FunctionSpace>( m_fs, "EdgeColumns" )
         .def( py::init( []( Mesh const& m, int halo ) {
-                  return functionspace::CellColumns( m, util::Config()( "halo", halo ) );
+                  return functionspace::EdgeColumns( m, util::Config()( "halo", halo ) );
               } ),
               "mesh"_a, "halo"_a = 0 )
         .def_property_readonly( "nb_edges", &functionspace::EdgeColumns::nb_edges )
@@ -281,7 +314,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "valid", &functionspace::EdgeColumns::valid );
     py::class_<functionspace::NodeColumns, FunctionSpace>( m_fs, "NodeColumns" )
         .def( py::init( []( Mesh const& m, int halo ) {
-                  return functionspace::CellColumns( m, util::Config()( "halo", halo ) );
+                  return functionspace::NodeColumns( m, util::Config()( "halo", halo ) );
               } ),
               "mesh"_a, "halo"_a = 0 )
         .def_property_readonly( "nb_nodes", &functionspace::NodeColumns::nb_nodes )
@@ -343,6 +376,32 @@ PYBIND11_MODULE( _atlas4py, m ) {
             return py::buffer_info( f.storage(), f.datatype().size(), atlasToPybind( f.datatype() ), f.rank(),
                                     f.shape(), strides );
         } );
+
+    py::class_<mesh::Nodes::Topology> topology( m, "Topology" );
+    topology.attr( "NONE" )     = py::cast( int( mesh::Nodes::Topology::NONE ) );
+    topology.attr( "GHOST" )    = py::cast( int( mesh::Nodes::Topology::GHOST ) );
+    topology.attr( "PERIODIC" ) = py::cast( int( mesh::Nodes::Topology::PERIODIC ) );
+    topology.attr( "BC" )       = py::cast( int( mesh::Nodes::Topology::BC ) );
+    topology.attr( "WEST" )     = py::cast( int( mesh::Nodes::Topology::WEST ) );
+    topology.attr( "EAST" )     = py::cast( int( mesh::Nodes::Topology::EAST ) );
+    topology.attr( "NORTH" )    = py::cast( int( mesh::Nodes::Topology::NORTH ) );
+    topology.attr( "SOUTH" )    = py::cast( int( mesh::Nodes::Topology::SOUTH ) );
+    topology.attr( "PATCH" )    = py::cast( int( mesh::Nodes::Topology::PATCH ) );
+    topology.attr( "POLE" )     = py::cast( int( mesh::Nodes::Topology::POLE ) );
+    topology.def_static( "reset", &mesh::Nodes::Topology::reset );
+    topology.def_static( "set", &mesh::Nodes::Topology::set );
+    topology.def_static( "unset", &mesh::Nodes::Topology::unset );
+    topology.def_static( "toggle", &mesh::Nodes::Topology::toggle );
+    topology.def_static( "check", &mesh::Nodes::Topology::check );
+    topology.def_static( "check_all", &mesh::Nodes::Topology::check_all );
+    topology.def_static( "check_any", &mesh::Nodes::Topology::check_any );
+    // static void reset( int& flags, int bit = 0 ) { flags = bit; }
+    // static void set( int& flags, int bit ) { flags |= bit; }
+    // static void unset( int& flags, int bit ) { flags &= ( ~bit ); }
+    // static void toggle( int& flags, int bit ) { flags ^= bit; }
+    // static bool check( int flags, int bits ) { return ( flags & bits ) == bits; }
+    // static bool check_all( int flags, int bits ) { return ( flags & bits ) == bits; }
+    // static bool check_any( int flags, int bits ) { return flags & bits; }
 
     py::class_<output::Gmsh>( m, "Gmsh" )
         .def( py::init( []( std::string const& path ) { return output::Gmsh{ path }; } ), "path"_a )
