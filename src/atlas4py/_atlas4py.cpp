@@ -365,6 +365,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "shape", py::overload_cast<>( &Field::shape, py::const_ ) )
         .def_property_readonly( "size", &Field::size )
         .def_property_readonly( "rank", &Field::rank )
+        .def_property_readonly( "datatype", []( Field& f ) { return atlasToPybind( f.datatype() ); } )
         .def_property( "metadata", py::overload_cast<>( &Field::metadata, py::const_ ),
                        py::overload_cast<>( &Field::metadata ) )
         .def_buffer( []( Field& f ) {
