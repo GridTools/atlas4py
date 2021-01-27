@@ -21,21 +21,21 @@ function(copy_target ct_tgt)
     )
 endfunction()
 
-find_package(eckit QUIET)
-if(NOT eckit_FOUND)
-    find_ecbuild()
-    FetchContent_Declare(
-        eckit
-        GIT_REPOSITORY https://github.com/ecmwf/eckit.git
-        GIT_TAG        ${ATLAS4PY_ECKIT_VERSION}
-    )
-    FetchContent_MakeAvailable(eckit)
-
-    set(_atlas4py_built_eckit ON)
-endif()
-
-find_package(atlas QUIET)
+find_package(atlas QUIET PATHS $ENV{ATLAS_INSTALL_DIR})
 if(NOT atlas_FOUND)
+    find_package(eckit QUIET)
+    if(NOT eckit_FOUND)
+        find_ecbuild()
+        FetchContent_Declare(
+            eckit
+            GIT_REPOSITORY https://github.com/ecmwf/eckit.git
+            GIT_TAG        ${ATLAS4PY_ECKIT_VERSION}
+        )
+        FetchContent_MakeAvailable(eckit)
+
+        set(_atlas4py_built_eckit ON)
+    endif()
+
     find_ecbuild()
     FetchContent_Declare(
         atlas
