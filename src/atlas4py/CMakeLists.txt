@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION ${ATLAS4PY_CMAKE_MINIMUM_REQUIRED_VERSION})
 
 project(atlas4py LANGUAGES CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+
 include(FetchContent)
 macro(find_ecbuild)
     if(NOT ecbuild_FOUND)
@@ -68,5 +70,4 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(pybind11)
 
 pybind11_add_module(_atlas4py _atlas4py.cpp)
-target_compile_features(_atlas4py PUBLIC cxx_std_17)
 target_link_libraries(_atlas4py PUBLIC atlas eckit)
