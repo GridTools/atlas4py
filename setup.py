@@ -11,9 +11,9 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 
 VERSIONS = dict(
     cmake="3.14.0",
-    ecbuild="3.3.2",
-    eckit="1.10.1",
-    atlas="0.20.1",
+    ecbuild="3.6.3",
+    eckit="1.17.1",
+    atlas="0.26.0",
     pybind11="2.5.0",
     python="3.6",
 )
