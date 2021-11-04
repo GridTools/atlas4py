@@ -7,6 +7,7 @@
 #include "atlas/mesh.h"
 #include "atlas/mesh/actions/BuildDualMesh.h"
 #include "atlas/mesh/actions/BuildEdges.h"
+#include "atlas/mesh/actions/BuildNode2CellConnectivity.h"
 #include "atlas/meshgenerator.h"
 #include "atlas/option/Options.h"
 #include "atlas/output/Gmsh.h"
@@ -227,6 +228,10 @@ PYBIND11_MODULE( _atlas4py, m ) {
     m.def( "build_edges", []( Mesh& mesh ) { mesh::actions::build_edges( mesh, option::pole_edges( false ) ); } );
     m.def( "build_node_to_edge_connectivity",
            py::overload_cast<Mesh&>( &mesh::actions::build_node_to_edge_connectivity ) );
+    m.def( "build_element_to_edge_connectivity",
+           py::overload_cast<Mesh&>( &mesh::actions::build_element_to_edge_connectivity ) );
+    m.def( "build_node_to_cell_connectivity",
+           py::overload_cast<Mesh&>( &mesh::actions:: build_node_to_cell_connectivity ) );
     m.def( "build_median_dual_mesh", py::overload_cast<Mesh&>( &mesh::actions::build_median_dual_mesh ) );
 
     py::class_<mesh::IrregularConnectivity>( m, "IrregularConnectivity" )
@@ -236,7 +241,9 @@ PYBIND11_MODULE( _atlas4py, m ) {
                   return c( row, col );
               } )
         .def_property_readonly( "rows", &mesh::IrregularConnectivity::rows )
-        .def( "cols", &mesh::IrregularConnectivity::cols, "row_idx"_a );
+        .def( "cols", &mesh::IrregularConnectivity::cols, "row_idx"_a )
+        .def_property_readonly( "maxcols", &mesh::IrregularConnectivity::maxcols )
+        .def_property_readonly( "mincols", &mesh::IrregularConnectivity::mincols );
     py::class_<mesh::MultiBlockConnectivity>( m, "MultiBlockConnectivity" )
         .def( "__getitem__",
               []( mesh::MultiBlockConnectivity const& c, std::tuple<idx_t, idx_t> const& pos ) {
@@ -249,7 +256,11 @@ PYBIND11_MODULE( _atlas4py, m ) {
                   return c( block, row, col );
               } )
         .def_property_readonly( "blocks", &mesh::MultiBlockConnectivity::blocks )
-        .def( "block", py::overload_cast<idx_t>( &mesh::MultiBlockConnectivity::block, py::const_ ) );
+        .def( "block", py::overload_cast<idx_t>( &mesh::MultiBlockConnectivity::block, py::const_ ), py::return_value_policy::reference_internal)
+        .def_property_readonly( "rows", &mesh::MultiBlockConnectivity::rows )
+        .def( "cols", &mesh::MultiBlockConnectivity::cols, "row_idx"_a )
+        .def_property_readonly( "maxcols", &mesh::MultiBlockConnectivity::maxcols )
+        .def_property_readonly( "mincols", &mesh::MultiBlockConnectivity::mincols );
     py::class_<mesh::BlockConnectivity>( m, "BlockConnectivity" )
         .def( "__getitem__",
               []( mesh::BlockConnectivity const& c, std::tuple<idx_t, idx_t> const& pos ) {
@@ -263,6 +274,8 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "size", &mesh::Nodes::size )
         .def_property_readonly( "edge_connectivity",
                                 py::overload_cast<>( &mesh::Nodes::edge_connectivity, py::const_ ) )
+        .def_property_readonly( "cell_connectivity",
+                                py::overload_cast<>( &mesh::Nodes::cell_connectivity, py::const_ ) )
         .def_property_readonly( "lonlat", py::overload_cast<>( &Mesh::Nodes::lonlat, py::const_ ) )
         .def(
             "field", []( mesh::Nodes const& n, std::string const& name ) { return n.field( name ); }, "name"_a );
@@ -275,6 +288,9 @@ PYBIND11_MODULE( _atlas4py, m ) {
                                 py::overload_cast<>( &mesh::HybridElements::node_connectivity, py::const_ ) )
         .def_property_readonly( "edge_connectivity",
                                 py::overload_cast<>( &mesh::HybridElements::edge_connectivity, py::const_ ) )
+        .def_property_readonly( "cell_connectivity",
+                                py::overload_cast<>( &mesh::HybridElements::cell_connectivity, py::const_ ) )
+
         .def(
             "field", []( mesh::HybridElements const& he, std::string const& name ) { return he.field( name ); },
             "name"_a )
