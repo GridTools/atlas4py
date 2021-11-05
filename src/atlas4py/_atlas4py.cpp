@@ -277,8 +277,10 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "cell_connectivity",
                                 py::overload_cast<>( &mesh::Nodes::cell_connectivity, py::const_ ) )
         .def_property_readonly( "lonlat", py::overload_cast<>( &Mesh::Nodes::lonlat, py::const_ ) )
-        .def(
-            "field", []( mesh::Nodes const& n, std::string const& name ) { return n.field( name ); }, "name"_a );
+        .def("field", []( mesh::Nodes const& n, std::string const& name ) { return n.field( name ); },
+             "name"_a, py::return_value_policy::reference_internal )
+        .def( "flags", []( mesh::Nodes const& n ) { return n.flags(); },
+              py::return_value_policy::reference_internal);
 
     py::class_<mesh::HybridElements>( m, "HybridElements" )
         .def_property_readonly( "size", &mesh::HybridElements::size )
@@ -291,10 +293,10 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "cell_connectivity",
                                 py::overload_cast<>( &mesh::HybridElements::cell_connectivity, py::const_ ) )
 
-        .def(
-            "field", []( mesh::HybridElements const& he, std::string const& name ) { return he.field( name ); },
-            "name"_a )
-        .def( "flags", []( mesh::HybridElements const& he ) { return he.flags(); } );
+        .def("field", []( mesh::HybridElements const& he, std::string const& name ) { return he.field( name ); },
+            "name"_a, py::return_value_policy::reference_internal )
+        .def( "flags", []( mesh::HybridElements const& he ) { return he.flags(); },
+              py::return_value_policy::reference_internal );
 
 
     auto m_fs = m.def_submodule( "functionspace" );
