@@ -1,3 +1,5 @@
+#include <functional>
+
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -8,10 +10,12 @@
 #include "atlas/mesh/actions/BuildDualMesh.h"
 #include "atlas/mesh/actions/BuildEdges.h"
 #include "atlas/mesh/actions/BuildNode2CellConnectivity.h"
+#include "atlas/mesh/actions/BuildPeriodicBoundaries.h"
 #include "atlas/meshgenerator.h"
 #include "atlas/option/Options.h"
 #include "atlas/output/Gmsh.h"
 #include "eckit/value/Value.h"
+#include "eckit/config/Configuration.h"
 
 namespace py = ::pybind11;
 using namespace atlas;
@@ -87,6 +91,12 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
     else
         return { 0 };
 }
+
+const eckit::Configuration& noconfig() {
+    static util::NoConfig config;
+    return config;
+}
+
 }  // namespace
 
 PYBIND11_MODULE( _atlas4py, m ) {
@@ -182,8 +192,11 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "regular", &StructuredGrid::regular )
         .def_property_readonly( "periodic", &StructuredGrid::periodic );
 
+    py::class_<eckit::Configuration>( m, "eckit.Configuration" );
+    py::class_<eckit::LocalConfiguration, eckit::Configuration>( m, "eckit.LocalConfiguration" );
+
     // TODO This is a duplicate of metadata below (because same base class)
-    py::class_<util::Config>( m, "Config" )
+    py::class_<util::Config, eckit::LocalConfiguration>( m, "Config" )
         .def( py::init() )
         .def( "__setitem__",
               []( util::Config& config, std::string const& key, py::object value ) {
@@ -225,7 +238,9 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property( "nodes", py::overload_cast<>( &Mesh::nodes, py::const_ ), py::overload_cast<>( &Mesh::nodes ) )
         .def_property( "edges", py::overload_cast<>( &Mesh::edges, py::const_ ), py::overload_cast<>( &Mesh::edges ) )
         .def_property( "cells", py::overload_cast<>( &Mesh::cells, py::const_ ), py::overload_cast<>( &Mesh::cells ) );
-    m.def( "build_edges", []( Mesh& mesh ) { mesh::actions::build_edges( mesh, option::pole_edges( false ) ); } );
+    m.def( "build_edges", []( Mesh& mesh, std::optional<std::reference_wrapper<eckit::Configuration>> const& config ) {
+        mesh::actions::build_edges( mesh, config ? config.value().get() : noconfig() );
+    } );
     m.def( "build_node_to_edge_connectivity",
            py::overload_cast<Mesh&>( &mesh::actions::build_node_to_edge_connectivity ) );
     m.def( "build_element_to_edge_connectivity",
@@ -233,6 +248,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
     m.def( "build_node_to_cell_connectivity",
            py::overload_cast<Mesh&>( &mesh::actions:: build_node_to_cell_connectivity ) );
     m.def( "build_median_dual_mesh", py::overload_cast<Mesh&>( &mesh::actions::build_median_dual_mesh ) );
+    m.def( "build_periodic_boundaries", py::overload_cast<Mesh&>( &mesh::actions::build_periodic_boundaries ) );
 
     py::class_<mesh::IrregularConnectivity>( m, "IrregularConnectivity" )
         .def( "__getitem__",
