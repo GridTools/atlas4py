@@ -85,6 +85,9 @@ class CMakeBuild(build_ext):
         # Run CMake configure
         print("-" * 10, "Running CMake prepare", "-" * 40)
         cmake_args = [
+            "-DCMAKE_INSTALL_RPATH=$ORIGIN",
+            "-DCMAKE_BUILD_WITH_INSTALL_RPATH:BOOL=ON",
+            "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH:BOOL=OFF",
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + extdir,
             "-DPYTHON_EXECUTABLE=" + sys.executable,
             "-DCMAKE_BUILD_TYPE=" + cfg,
