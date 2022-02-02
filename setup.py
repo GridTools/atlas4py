@@ -88,7 +88,7 @@ class CMakeBuild(build_ext):
 
         # Run CMake configure
         print("-" * 10, "Running CMake prepare", "-" * 40)
-        RPATH = "@rpath" if sys.platform == "darwin" else "$ORIGIN"
+        RPATH = "@loader_path" if sys.platform == "darwin" else "$ORIGIN"
         cmake_args = [
             "-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
             f"-DCMAKE_INSTALL_RPATH={RPATH}",
