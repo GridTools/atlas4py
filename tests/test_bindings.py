@@ -31,7 +31,7 @@ def structured_in_and_out_fields(structured_function_space):
     fs = structured_function_space
     in_f = fs.create_field(name="my_in_field", levels=1, dtype=np.float64)
     out_f = fs.create_field(name="my_out_field", levels=1, dtype=np.float64)
-    return in_f, out_f
+    yield in_f, out_f
 
 
 # -- Tests --
