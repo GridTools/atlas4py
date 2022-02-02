@@ -11,6 +11,8 @@
 #include "atlas/mesh/actions/BuildEdges.h"
 #include "atlas/mesh/actions/BuildNode2CellConnectivity.h"
 #include "atlas/mesh/actions/BuildPeriodicBoundaries.h"
+#include "atlas/mesh/actions/BuildHalo.h"
+#include "atlas/mesh/actions/BuildParallelFields.h"
 #include "atlas/meshgenerator.h"
 #include "atlas/option/Options.h"
 #include "atlas/output/Gmsh.h"
@@ -90,11 +92,6 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
         return array::DataType::KIND_UINT64;
     else
         return { 0 };
-}
-
-const eckit::Configuration& noconfig() {
-    static util::NoConfig config;
-    return config;
 }
 
 }  // namespace
@@ -239,7 +236,10 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property( "edges", py::overload_cast<>( &Mesh::edges, py::const_ ), py::overload_cast<>( &Mesh::edges ) )
         .def_property( "cells", py::overload_cast<>( &Mesh::cells, py::const_ ), py::overload_cast<>( &Mesh::cells ) );
     m.def( "build_edges", []( Mesh& mesh, std::optional<std::reference_wrapper<eckit::Configuration>> const& config ) {
-        mesh::actions::build_edges( mesh, config ? config.value().get() : noconfig() );
+        if(config)
+            mesh::actions::build_edges( mesh, config.value().get());
+        else
+            mesh::actions::build_edges( mesh);
     } );
     m.def( "build_node_to_edge_connectivity",
            py::overload_cast<Mesh&>( &mesh::actions::build_node_to_edge_connectivity ) );
@@ -249,6 +249,8 @@ PYBIND11_MODULE( _atlas4py, m ) {
            py::overload_cast<Mesh&>( &mesh::actions:: build_node_to_cell_connectivity ) );
     m.def( "build_median_dual_mesh", py::overload_cast<Mesh&>( &mesh::actions::build_median_dual_mesh ) );
     m.def( "build_periodic_boundaries", py::overload_cast<Mesh&>( &mesh::actions::build_periodic_boundaries ) );
+    m.def( "build_halo", py::overload_cast<Mesh&, int>( &mesh::actions::build_halo ) );
+    m.def( "build_parallel_fields", py::overload_cast<Mesh&>( &mesh::actions::build_parallel_fields ) );
 
     py::class_<mesh::IrregularConnectivity>( m, "IrregularConnectivity" )
         .def( "__getitem__",
