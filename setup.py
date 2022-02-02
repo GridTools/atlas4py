@@ -88,8 +88,11 @@ class CMakeBuild(build_ext):
 
         # Run CMake configure
         print("-" * 10, "Running CMake prepare", "-" * 40)
+        RPATH = "@rpath" if sys.platform == "darwin" else "$ORIGIN"
         cmake_args = [
-            "-DCMAKE_BUILD_WITH_INSTALL_RPATH:BOOL=ON",
+            "-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
+            f"-DCMAKE_INSTALL_RPATH={RPATH}",
+            "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON",
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + extdir,
             "-DPYTHON_EXECUTABLE=" + sys.executable,
             "-DCMAKE_BUILD_TYPE=" + cfg,
