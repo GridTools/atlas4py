@@ -240,7 +240,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
             mesh::actions::build_edges( mesh, config.value().get());
         else
             mesh::actions::build_edges( mesh);
-    } );
+    }, "mesh"_a, "config"_a = std::nullopt );
     m.def( "build_node_to_edge_connectivity",
            py::overload_cast<Mesh&>( &mesh::actions::build_node_to_edge_connectivity ) );
     m.def( "build_element_to_edge_connectivity",
