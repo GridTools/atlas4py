@@ -1,9 +1,8 @@
 name: Build and deploy wheel
 
 on:
-  workflow_run:
-    workflows: [Tox tests]
-    types: [completed]
+  push:
+    branches: [ master ]
 
 jobs:
   build-wheels:
