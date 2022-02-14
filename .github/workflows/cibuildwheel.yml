@@ -1,11 +1,9 @@
-name: Build and deploy
+name: Build and deploy wheel
 
-on: [push] #, pull_request]
-
-# on:
-#   workflow_run:
-#     workflows: [Tox tests]
-#     types: [completed]
+on:
+  workflow_run:
+    workflows: [Tox tests]
+    types: [completed]
 
 jobs:
   build-wheels:
