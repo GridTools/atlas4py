@@ -2,6 +2,11 @@ name: Build, Test and Deploy
 
 on: [push] #, pull_request]
 
+# on:
+#   workflow_run:
+#     workflows: [Tox tests]
+#     types: [completed]
+
 jobs:
   build-wheels:
     name: Build wheels on ${{ matrix.os }}
