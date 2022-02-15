@@ -2,7 +2,7 @@ name: Build and deploy wheel
 
 on:
   push:
-    branches: ['*'] #[ master ]
+    branches: [ master ]
 
 jobs:
   build-wheels:

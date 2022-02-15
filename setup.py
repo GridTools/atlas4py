@@ -121,6 +121,7 @@ class CMakeBuild(build_ext):
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
 
 
+# Bump dev version part using: bump2version --allow-dirty  --list dev
 with open("src/atlas4py/_version.py", "r") as file:
     match = re.search("""__version__[ ]*=[ ]*[\'\"]([^ \'\"]+)""", file.read().replace("\n", " "))
     PACKAGE_VERSION = match[1].strip()
