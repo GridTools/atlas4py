@@ -17,13 +17,21 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v2
-      - name: Build wheels
+      - name: Build Linux wheels
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
         uses: pypa/cibuildwheel@v2.3.1
         env:
           CIBW_ARCHS: auto64
           CIBW_SKIP: "*musllinux*"
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
+
+      - name: Build wheels macos
+        if: ${{ startsWith(matrix.os, 'macos') }}
+        uses: pypa/cibuildwheel@v2.3.0
+        with:
+          output-dir: dist
+        env:
           MACOSX_DEPLOYMENT_TARGET: "10.15" #needed to undo some CIBW settings
           #CIBW_BUILD: "cp3*-macosx_x86_64"
           CIBW_ARCHS_MACOS: x86_64
