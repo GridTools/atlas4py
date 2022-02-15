@@ -10,7 +10,7 @@ on: [push]
 jobs:
   build-wheels:
     name: Build wheels on ${{ matrix.os }}
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    #if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
