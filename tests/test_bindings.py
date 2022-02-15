@@ -35,7 +35,7 @@ def structured_in_and_out_fields(structured_function_space):
 
 
 # -- Tests --
-def test_version()):
+def test_version():
     assert isinstance(atlas4py.__version__, str)
 
 
