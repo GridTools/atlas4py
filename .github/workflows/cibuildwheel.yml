@@ -1,12 +1,15 @@
 name: Build and deploy wheel
 
 on:
-  push:
-    branches: [ master ]
+  workflow_run:
+    workflows: [Tox tests]
+    types: [completed]
+    #branches: [ master ]
 
 jobs:
   build-wheels:
     name: Build wheels on ${{ matrix.os }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
