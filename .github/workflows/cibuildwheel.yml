@@ -35,6 +35,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "10.15" #needed to undo some CIBW settings
           #CIBW_BUILD: "cp3*-macosx_x86_64"
           CIBW_ARCHS_MACOS: x86_64
+          CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
 
       - uses: actions/upload-artifact@v2
