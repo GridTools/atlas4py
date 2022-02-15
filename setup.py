@@ -26,8 +26,10 @@ with open("README.md", "r") as file:
     LONG_DESCRIPTION = file.read()
 
 URL = "https://github.com/ecmwf/atlas.git"
-EMAIL = "willem.deconinck@ecmwf.int"
 AUTHOR = "Willem Deconinck"
+AUTHOR_EMAIL = "willem.deconinck@ecmwf.int"
+MAINTAINER = "GridTools"
+MAINTAINER_EMAIL = "gridtools@cscs.ch"
 LICENSE = "Apache License 2.0"
 CLASSIFIERS = [
     "Development Status :: 3 - Alpha",
@@ -128,7 +130,9 @@ setup(
     name=NAME,
     version=PACKAGE_VERSION,
     author=AUTHOR,
-    author_email=EMAIL,
+    author_email=AUTHOR_EMAIL,
+    maintainer=MAINTAINER,
+    maintainer_email=MAINTAINER_EMAIL,
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     license=LICENSE,
