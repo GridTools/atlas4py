@@ -120,8 +120,8 @@ class CMakeBuild(build_ext):
 
 
 with open("src/atlas4py/_version.py", "r") as file:
-    v_string = re.search("__version__[ ]*=[ ]*([^ ]+)", file.read().replace("\n", " "))[1]
-    PACKAGE_VERSION = v_string.strip()
+    match = re.search("""__version__[ ]*=[ ]*[\'\"]([^ \'\"]+)""", file.read().replace("\n", " "))
+    PACKAGE_VERSION = match[1].strip()
 
 
 setup(
