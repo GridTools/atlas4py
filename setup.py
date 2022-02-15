@@ -21,6 +21,10 @@ VERSIONS = dict(
 # Package meta-data.
 NAME = "atlas4py"
 DESCRIPTION = "Python bindings for Atlas: a ECMWF library for parallel data-structures"
+
+with open("README.md", "r") as file:
+    LONG_DESCRIPTION = file.read()
+
 URL = "https://github.com/ecmwf/atlas.git"
 EMAIL = "willem.deconinck@ecmwf.int"
 AUTHOR = "Willem Deconinck"
@@ -115,13 +119,18 @@ class CMakeBuild(build_ext):
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
 
 
+with open("src/atlas4py/_version.py", "r") as file:
+    v_string = re.search("__version__[ ]*=[ ]*([^ ]+)", file.read().replace("\n", " "))[1]
+    PACKAGE_VERSION = v_string.strip()
+
+
 setup(
     name=NAME,
-    version=VERSIONS["atlas"],
+    version=PACKAGE_VERSION,
     author=AUTHOR,
     author_email=EMAIL,
     description=DESCRIPTION,
-    long_description="",
+    long_description=LONG_DESCRIPTION,
     license=LICENSE,
     classifiers=CLASSIFIERS,
     python_requires=PYTHON_REQUIRES,
