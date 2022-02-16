@@ -17,6 +17,8 @@ jobs:
       - name: Build Linux wheels
         if: ${{ startsWith(matrix.os, 'ubuntu') }}
         uses: pypa/cibuildwheel@v2.3.1
+        with:
+          output-dir: dist
         env:
           CIBW_ARCHS: auto64
           CIBW_SKIP: "*musllinux*"
@@ -38,7 +40,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: dist
-          path: ./wheelhouse/*.whl
+          path: ./dist/*.whl
 
   build_sdist:
     name: Build sdist
@@ -54,7 +56,7 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: dist
-          path: dist/*.tar.gz
+          path: ./dist/*.tar.gz
 
   upload-testpypi:
     name: Upload wheels to TestPyPI
