@@ -3,6 +3,8 @@ name: Build and deploy wheel
 on:
   push:
     branches: [ master ]
+  pull_request:  # To be deleted: just for testing CI
+    branches: [ master ]
 
 jobs:
   build-wheels:
