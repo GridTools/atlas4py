@@ -4,7 +4,12 @@ import re
 import requests
 
 
-pypi_version = requests.get("https://test.pypi.org/pypi/atlas4py/json").json()["info"]["version"]
+try:
+    pypi_version = requests.get("https://test.pypi.org/pypi/atlas4py/json").json()["info"][
+        "version"
+    ]
+except:
+    pypi_version = "0.0.0"
 
 with open("src/atlas4py/_version.py", "r") as file:
     match = re.search("""__version__[ ]*=[ ]*[\'\"]([^ \'\"]+)""", file.read().replace("\n", " "))
