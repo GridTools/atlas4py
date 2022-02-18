@@ -16,7 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build binary wheels
-        #if: ${{ startsWith(matrix.os, 'ubuntu') }}
         uses: pypa/cibuildwheel@v2.3.1
         with:
           output-dir: dist
