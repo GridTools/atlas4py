@@ -129,7 +129,7 @@ with open("src/atlas4py/_version.py", "r") as file:
 #   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
 #   - {dev} => version of the Python bindings as the commit number in 'master'
 #
-# Bump dev version part using:
+# Before opening a PR to master, the dev version part should be bumped using:
 #   bump2version --allow-dirty  --list dev
 
 
