@@ -3,6 +3,8 @@ name: Build and deploy wheel
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   build-wheels:
@@ -14,27 +16,32 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build Linux wheels
-        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        #if: ${{ startsWith(matrix.os, 'ubuntu') }}
         uses: pypa/cibuildwheel@v2.3.1
         with:
           output-dir: dist
         env:
+          # Linux settings
           CIBW_ARCHS: auto64
           CIBW_SKIP: "*musllinux*"
+          # MacOS settings
+          MACOSX_DEPLOYMENT_TARGET: "10.14"
+          CIBW_ARCHS_MACOS: x86_64
+          # General
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
 
-      - name: Build wheels macos
-        if: ${{ startsWith(matrix.os, 'macos') }}
-        uses: pypa/cibuildwheel@v2.3.0
-        with:
-          output-dir: dist
-        env:
-          MACOSX_DEPLOYMENT_TARGET: "10.14"
-          #CIBW_BUILD: "cp3*-macosx_x86_64"
-          CIBW_ARCHS_MACOS: x86_64
-          CIBW_TEST_REQUIRES: -r requirements-dev.txt
-          CIBW_TEST_COMMAND: pytest -v {project}/tests
+      # - name: Build wheels macos
+      #   if: ${{ startsWith(matrix.os, 'macos') }}
+      #   uses: pypa/cibuildwheel@v2.3.0
+      #   with:
+      #     output-dir: dist
+      #   env:
+      #     MACOSX_DEPLOYMENT_TARGET: "10.14"
+      #     #CIBW_BUILD: "cp3*-macosx_x86_64"
+      #     CIBW_ARCHS_MACOS: x86_64
+      #     CIBW_TEST_REQUIRES: -r requirements-dev.txt
+      #     CIBW_TEST_COMMAND: pytest -v {project}/tests
 
       - uses: actions/upload-artifact@v2
         with:
