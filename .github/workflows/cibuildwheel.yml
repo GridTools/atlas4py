@@ -29,7 +29,6 @@ jobs:
           # General
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
-
       - uses: actions/upload-artifact@v2
         with:
           name: dist
