@@ -31,18 +31,6 @@ jobs:
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
 
-      # - name: Build wheels macos
-      #   if: ${{ startsWith(matrix.os, 'macos') }}
-      #   uses: pypa/cibuildwheel@v2.3.0
-      #   with:
-      #     output-dir: dist
-      #   env:
-      #     MACOSX_DEPLOYMENT_TARGET: "10.14"
-      #     #CIBW_BUILD: "cp3*-macosx_x86_64"
-      #     CIBW_ARCHS_MACOS: x86_64
-      #     CIBW_TEST_REQUIRES: -r requirements-dev.txt
-      #     CIBW_TEST_COMMAND: pytest -v {project}/tests
-
       - uses: actions/upload-artifact@v2
         with:
           name: dist
