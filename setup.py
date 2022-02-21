@@ -21,12 +21,21 @@ VERSIONS = dict(
 # Package meta-data.
 NAME = "atlas4py"
 DESCRIPTION = "Python bindings for Atlas: a ECMWF library for parallel data-structures"
+
+with open("README.md", "r") as file:
+    LONG_DESCRIPTION = file.read()
+
 URL = "https://github.com/ecmwf/atlas.git"
-EMAIL = "willem.deconinck@ecmwf.int"
 AUTHOR = "Willem Deconinck"
+AUTHOR_EMAIL = "willem.deconinck@ecmwf.int"
+MAINTAINER = "GridTools"
+MAINTAINER_EMAIL = "gridtools@cscs.ch"
 LICENSE = "Apache License 2.0"
 CLASSIFIERS = [
-    "License :: OSI Approved :: Apache License 2.0",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.6",
@@ -35,6 +44,7 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
 ]
 
 
@@ -111,13 +121,24 @@ class CMakeBuild(build_ext):
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
 
 
+PACKAGE_VERSION = "0.26.0.dev14"
+# Meaning of the version scheme "{major}.{minor}.{patch}.dev{dev}":
+#   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
+#   - {dev} => version of the Python bindings as the commit number in 'master'
+#
+# Before opening a PR to master, the dev version part should be bumped using:
+#   bump2version --allow-dirty  --list dev
+
+
 setup(
     name=NAME,
-    version=VERSIONS["atlas"],
+    version=PACKAGE_VERSION,
     author=AUTHOR,
-    author_email=EMAIL,
+    author_email=AUTHOR_EMAIL,
+    maintainer=MAINTAINER,
+    maintainer_email=MAINTAINER_EMAIL,
     description=DESCRIPTION,
-    long_description="",
+    long_description=LONG_DESCRIPTION,
     license=LICENSE,
     classifiers=CLASSIFIERS,
     python_requires=PYTHON_REQUIRES,

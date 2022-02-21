@@ -1,0 +1,64 @@
+name: Build and deploy wheel
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build binary wheels
+        uses: pypa/cibuildwheel@v2.3.1
+        with:
+          output-dir: dist
+        env:
+          # Linux settings
+          CIBW_ARCHS: auto64
+          CIBW_SKIP: "*musllinux*"
+          # MacOS settings
+          MACOSX_DEPLOYMENT_TARGET: "10.14"
+          CIBW_ARCHS_MACOS: x86_64
+          # General
+          CIBW_TEST_REQUIRES: -r requirements-dev.txt
+          CIBW_TEST_COMMAND: pytest -v {project}/tests
+      - uses: actions/upload-artifact@v2
+        with:
+          name: dist
+          path: ./dist/*.whl
+
+  build_sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+      - uses: actions/checkout@v2
+      - name: Install requirements
+        run: python -m pip install -r requirements-dev.txt
+      - name: Make sdist
+        run:  python setup.py sdist
+      - uses: actions/upload-artifact@v2
+        with:
+          name: dist
+          path: ./dist/*.tar.gz
+
+  upload-testpypi:
+    name: Upload wheels to TestPyPI
+    needs: [build-wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@v1.4.2
+        with:
+          user: __token__
+          password: ${{ secrets.TESTPYPI_DEPLOY_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/

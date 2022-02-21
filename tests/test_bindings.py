@@ -35,6 +35,10 @@ def structured_in_and_out_fields(structured_function_space):
 
 
 # -- Tests --
+def test_version():
+    assert isinstance(atlas4py.__version__, str)
+
+
 def test_grid_generation(structured_grid):
     assert structured_grid.domain.type == "rectangular"
     assert structured_grid.regular == True
