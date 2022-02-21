@@ -121,10 +121,7 @@ class CMakeBuild(build_ext):
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
 
 
-with open("src/atlas4py/_version.py", "r") as file:
-    match = re.search("""__version__[ ]*=[ ]*[\'\"]([^ \'\"]+)""", file.read().replace("\n", " "))
-    PACKAGE_VERSION = match[1].strip()
-
+PACKAGE_VERSION = "0.26.0.dev14"
 # Meaning of the version scheme "{major}.{minor}.{patch}.dev{dev}":
 #   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
 #   - {dev} => version of the Python bindings as the commit number in 'master'
