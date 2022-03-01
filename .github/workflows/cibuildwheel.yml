@@ -25,7 +25,8 @@ jobs:
           CIBW_SKIP: "*musllinux*"
           # MacOS settings
           MACOSX_DEPLOYMENT_TARGET: "10.14"
-          CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
+          CIBW_ARCHS_MACOS: "universal2"
+          CMAKE_OSX_ARCHITECTURES: "arm64;x86_64"   # for CMake-Atlas
           # General
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests

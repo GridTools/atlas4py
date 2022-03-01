@@ -1,4 +1,5 @@
 import os
+import platform
 import re
 import sys
 import subprocess
@@ -52,6 +53,8 @@ CLASSIFIERS = [
 PYTHON_REQUIRES = f">={VERSIONS['python']}"
 
 CMAKE_MIN_VERSION = f"{VERSIONS['cmake']}"
+CMAKE_OSX_ARCHITECTURES = os.environ.get("CMAKE_OSX_ARCHITECTURES", platform.machine())
+
 BUILD_JOBS = os.cpu_count()
 
 
@@ -105,6 +108,7 @@ class CMakeBuild(build_ext):
             "-DCMAKE_INSTALL_RPATH=" + RPATH,
             "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON",
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + extdir,
+            "-DCMAKE_OSX_ARCHITECTURES=" + CMAKE_OSX_ARCHITECTURES,
             "-DPYTHON_EXECUTABLE=" + sys.executable,
             "-DCMAKE_BUILD_TYPE=" + cfg,
             "-DATLAS4PY_CMAKE_MINIMUM_REQUIRED_VERSION=" + VERSIONS["cmake"],
