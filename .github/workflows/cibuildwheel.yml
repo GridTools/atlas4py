@@ -24,7 +24,7 @@ jobs:
           CIBW_ARCHS: auto64
           CIBW_SKIP: "*musllinux*"
           # MacOS settings
-          MACOSX_DEPLOYMENT_TARGET: "10.14"
+          MACOSX_DEPLOYMENT_TARGET: "10.15"
           CIBW_ARCHS_MACOS: "universal2"
           CMAKE_OSX_ARCHITECTURES: "arm64;x86_64"   # for CMake-Atlas
           # General

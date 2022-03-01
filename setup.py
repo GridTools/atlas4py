@@ -53,7 +53,7 @@ CLASSIFIERS = [
 PYTHON_REQUIRES = f">={VERSIONS['python']}"
 
 CMAKE_MIN_VERSION = f"{VERSIONS['cmake']}"
-CMAKE_OSX_ARCHITECTURES = os.environ.get("CMAKE_OSX_ARCHITECTURES", platform.machine())
+CMAKE_OSX_ARCHITECTURES = os.environ.get("CMAKE_OSX_ARCHITECTURES", None)
 
 BUILD_JOBS = os.cpu_count()
 
@@ -108,7 +108,6 @@ class CMakeBuild(build_ext):
             "-DCMAKE_INSTALL_RPATH=" + RPATH,
             "-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON",
             "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=" + extdir,
-            "-DCMAKE_OSX_ARCHITECTURES=" + CMAKE_OSX_ARCHITECTURES,
             "-DPYTHON_EXECUTABLE=" + sys.executable,
             "-DCMAKE_BUILD_TYPE=" + cfg,
             "-DATLAS4PY_CMAKE_MINIMUM_REQUIRED_VERSION=" + VERSIONS["cmake"],
@@ -117,6 +116,8 @@ class CMakeBuild(build_ext):
             "-DATLAS4PY_ATLAS_VERSION=" + VERSIONS["atlas"],
             "-DATLAS4PY_PYBIND11_VERSION=" + VERSIONS["pybind11"],
         ]
+        if CMAKE_OSX_ARCHITECTURES:
+            cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + CMAKE_OSX_ARCHITECTURES)
         # print(f"./{self.build_temp}$ " + " ".join(["cmake", ext.sourcedir] + cmake_args))
         subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp)
 
@@ -147,8 +148,8 @@ setup(
     maintainer=MAINTAINER,
     maintainer_email=MAINTAINER_EMAIL,
     project_urls={
-        'Atlas Development': ATLAS_URL,
-        'Atlas4Py Development': ATLAS4PY_URL,
+        "Atlas Development": ATLAS_URL,
+        "Atlas4Py Development": ATLAS4PY_URL,
     },
     url=ATLAS4PY_URL,
     python_requires=PYTHON_REQUIRES,
