@@ -1,4 +1,5 @@
 import os
+import platform
 import re
 import sys
 import subprocess
@@ -25,7 +26,8 @@ DESCRIPTION = "Python bindings for Atlas: a ECMWF library for parallel data-stru
 with open("README.md", "r") as file:
     LONG_DESCRIPTION = file.read()
 
-URL = "https://github.com/ecmwf/atlas.git"
+ATLAS_URL = "https://github.com/ecmwf/atlas.git"
+ATLAS4PY_URL = "https://github.com/GridTools/atlas4py"
 AUTHOR = "Willem Deconinck"
 AUTHOR_EMAIL = "willem.deconinck@ecmwf.int"
 MAINTAINER = "GridTools"
@@ -51,6 +53,8 @@ CLASSIFIERS = [
 PYTHON_REQUIRES = f">={VERSIONS['python']}"
 
 CMAKE_MIN_VERSION = f"{VERSIONS['cmake']}"
+CMAKE_OSX_ARCHITECTURES = os.environ.get("CMAKE_OSX_ARCHITECTURES", None)
+
 BUILD_JOBS = os.cpu_count()
 
 
@@ -112,6 +116,8 @@ class CMakeBuild(build_ext):
             "-DATLAS4PY_ATLAS_VERSION=" + VERSIONS["atlas"],
             "-DATLAS4PY_PYBIND11_VERSION=" + VERSIONS["pybind11"],
         ]
+        if CMAKE_OSX_ARCHITECTURES:
+            cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + CMAKE_OSX_ARCHITECTURES)
         # print(f"./{self.build_temp}$ " + " ".join(["cmake", ext.sourcedir] + cmake_args))
         subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp)
 
@@ -121,7 +127,7 @@ class CMakeBuild(build_ext):
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
 
 
-PACKAGE_VERSION = "0.26.0.dev14"
+PACKAGE_VERSION = "0.0.0.dev15"
 # Meaning of the version scheme "{major}.{minor}.{patch}.dev{dev}":
 #   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
 #   - {dev} => version of the Python bindings as the commit number in 'master'
@@ -135,12 +141,17 @@ setup(
     version=PACKAGE_VERSION,
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
-    maintainer=MAINTAINER,
-    maintainer_email=MAINTAINER_EMAIL,
+    classifiers=CLASSIFIERS,
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     license=LICENSE,
-    classifiers=CLASSIFIERS,
+    maintainer=MAINTAINER,
+    maintainer_email=MAINTAINER_EMAIL,
+    project_urls={
+        "Atlas Development": ATLAS_URL,
+        "Atlas4Py Development": ATLAS4PY_URL,
+    },
+    url=ATLAS4PY_URL,
     python_requires=PYTHON_REQUIRES,
     packages=find_packages("src"),
     package_dir={"": "src"},
