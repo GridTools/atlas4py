@@ -2,19 +2,10 @@ cmake_minimum_required(VERSION ${ATLAS4PY_CMAKE_MINIMUM_REQUIRED_VERSION})
 
 project(atlas4py LANGUAGES CXX)
 
+cmake_policy(SET CMP0074 NEW)
 set(CMAKE_CXX_STANDARD 17)
 
 include(FetchContent)
-macro(find_ecbuild)
-    if(NOT ecbuild_FOUND)
-        FetchContent_Declare(
-            ecbuild
-            GIT_REPOSITORY https://github.com/ecmwf/ecbuild.git
-            GIT_TAG        ${ATLAS4PY_ECBUILD_VERSION}
-        )
-        FetchContent_MakeAvailable(ecbuild)
-    endif()
-endmacro()
 
 function(copy_target ct_tgt)
     add_custom_target(copy_${ct_tgt} ALL
@@ -24,21 +15,35 @@ function(copy_target ct_tgt)
 endfunction()
 
 find_package(atlas QUIET PATHS $ENV{ATLAS_INSTALL_DIR})
+if( atlas_FOUND )
+  message( "Found atlas: ${atlas_DIR} (found version \"${atlas_VERSION}\")" )
+endif()
+
 if(NOT atlas_FOUND)
-    find_package(eckit QUIET)
+    find_package(ecbuild)
+    if(NOT ecbuild_FOUND)
+        FetchContent_Declare(
+            ecbuild
+            GIT_REPOSITORY https://github.com/ecmwf/ecbuild.git
+            GIT_TAG        ${ATLAS4PY_ECBUILD_VERSION}
+        )
+        FetchContent_MakeAvailable(ecbuild)
+    endif()
+    find_package(eckit)
+    if( eckit_FOUND )
+      message( "Found eckit: ${eckit_DIR} (found version \"${eckit_VERSION}\")" )
+    endif()
+
     if(NOT eckit_FOUND)
-        find_ecbuild()
         FetchContent_Declare(
             eckit
             GIT_REPOSITORY https://github.com/ecmwf/eckit.git
             GIT_TAG        ${ATLAS4PY_ECKIT_VERSION}
         )
         FetchContent_MakeAvailable(eckit)
-
         set(_atlas4py_built_eckit ON)
     endif()
 
-    find_ecbuild()
     FetchContent_Declare(
         atlas
         GIT_REPOSITORY https://github.com/ecmwf/atlas.git
@@ -70,4 +75,4 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(pybind11)
 
 pybind11_add_module(_atlas4py _atlas4py.cpp)
-target_link_libraries(_atlas4py PUBLIC atlas eckit)
+target_link_libraries(_atlas4py PUBLIC atlas)

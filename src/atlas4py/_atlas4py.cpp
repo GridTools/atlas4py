@@ -16,8 +16,11 @@
 #include "atlas/meshgenerator.h"
 #include "atlas/option/Options.h"
 #include "atlas/output/Gmsh.h"
+#include "atlas/library.h"
+
 #include "eckit/value/Value.h"
 #include "eckit/config/Configuration.h"
+
 
 namespace py = ::pybind11;
 using namespace atlas;
@@ -35,6 +38,48 @@ struct type_caster<atlas::array::ArrayShape> : public type_caster<std::vector<at
 }  // namespace pybind11
 
 namespace {
+
+void initialise_sys_argv() {
+    py::module sys = py::module::import("sys");
+    py::list sys_argv = sys.attr("argv");
+    int argc = (int)sys_argv.size();
+    static char** argv = [&]() {
+        char** argv = (char**)malloc(argc * sizeof(char*));
+        for (int i = 0; i < argc; ++i) {
+            argv[i] = (char*)PyUnicode_AsUTF8(sys_argv[i].ptr());
+        }
+        return argv;
+    }();
+    atlas::initialise(argc,argv);
+};
+
+void config_set( util::Config& config, const std::string& key, py::handle value ) {
+        if ( py::isinstance<py::bool_>( value ) ) {
+            config.set(key,value.cast<bool>());
+        }
+        else if ( py::isinstance<py::int_>( value ) ) {
+            config.set(key,value.cast<long long>());
+        } 
+        else if ( py::isinstance<py::float_>( value ) ) {
+            config.set(key,value.cast<double>());
+        }
+        else if ( py::isinstance<py::str>( value ) ) {
+            config.set(key, value.cast<std::string>());
+        }
+        else {
+            throw std::out_of_range( "type of value unsupported" );
+        }
+}
+
+util::Config to_config( py::kwargs kwargs ) {
+    util::Config config;
+    for( const auto& pair : kwargs ) {
+        const auto key = pair.first.cast<std::string>();
+        const auto& value = pair.second;
+        config_set(config, key, value);
+    }
+    return config;
+}
 
 py::object toPyObject( eckit::Value const& v ) {
     if ( v.isBool() )
@@ -195,33 +240,29 @@ PYBIND11_MODULE( _atlas4py, m ) {
     // TODO This is a duplicate of metadata below (because same base class)
     py::class_<util::Config, eckit::LocalConfiguration>( m, "Config" )
         .def( py::init() )
+        .def( py::init( []( py::kwargs kwargs) {
+            return to_config(kwargs);
+        } ) )
         .def( "__setitem__",
               []( util::Config& config, std::string const& key, py::object value ) {
-                  if ( py::isinstance<py::bool_>( value ) )
-                      config.set( key, value.cast<bool>() );
-                  else if ( py::isinstance<py::int_>( value ) )
-                      config.set( key, value.cast<long long>() );
-                  else if ( py::isinstance<py::float_>( value ) )
-                      config.set( key, value.cast<double>() );
-                  else if ( py::isinstance<py::str>( value ) )
-                      config.set( key, value.cast<std::string>() );
-                  else
-                      throw std::out_of_range( "type of value unsupported" );
+                  config_set(config,key,value);
               } )
         .def( "__getitem__",
               []( util::Config& config, std::string const& key ) -> py::object {
                   if ( !config.has( key ) )
                       throw std::out_of_range( "key <" + key + "> could not be found" );
-
-                  // TODO: We have to query metadata.get() even though this should
-                  // not be done (see comment in Config::get). We cannot
-                  // avoid this right now because otherwise we cannot query
-                  // the type of the underlying data.
                   return toPyObject( config.get().element( key ) );
               } )
         .def( "__repr__", []( util::Config const& config ) {
             return "_atlas4py.Config("_s + py::str( toPyObject( config.get() ) ) + ")"_s;
         } );
+
+    py::class_<MeshGenerator>( m, "MeshGenerator" )
+        // TODO in FunctionSpace below we expose config options, not the whole config object
+        .def( py::init( []( util::Config const& config ) { return MeshGenerator( config ); } ) )
+        .def( py::init( []( const std::string& type ) { return MeshGenerator(type); } ) ) 
+        .def( py::init( [](){ return MeshGenerator(); } ) )
+        .def( "generate", py::overload_cast<Grid const&>( &MeshGenerator::generate, py::const_ ) );
 
     py::class_<StructuredMeshGenerator>( m, "StructuredMeshGenerator" )
         // TODO in FunctionSpace below we expose config options, not the whole config object
@@ -230,6 +271,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def( "generate", py::overload_cast<Grid const&>( &StructuredMeshGenerator::generate, py::const_ ) );
 
     py::class_<Mesh>( m, "Mesh" )
+        .def( py::init( []( const Grid& grid ) { return Mesh(grid); } ) )
         .def_property_readonly( "grid", &Mesh::grid )
         .def_property_readonly( "projection", &Mesh::projection )
         .def_property( "nodes", py::overload_cast<>( &Mesh::nodes, py::const_ ), py::overload_cast<>( &Mesh::nodes ) )
@@ -317,6 +359,19 @@ PYBIND11_MODULE( _atlas4py, m ) {
               py::return_value_policy::reference_internal );
 
 
+
+    auto m_library = m.def_submodule( "library" );
+
+    m_library.def("initialize", []() {initialise_sys_argv();});
+    m_library.def("finalize", [](){atlas::finalise(); } );
+    m_library.def("initialise", []() {initialise_sys_argv();});
+    m_library.def("finalise", [](){atlas::finalise(); } );
+    m_library.attr("version") = atlas::Library::instance().version();
+    m.def("initialize", []() {initialise_sys_argv();});
+    m.def("finalize", []() {atlas::finalize();});
+    m.def("initialise", []() {initialise_sys_argv();});
+    m.def("finalise", []() {atlas::finalize();});
+
     auto m_fs = m.def_submodule( "functionspace" );
     py::class_<FunctionSpace>( m_fs, "FunctionSpace" )
         .def_property_readonly( "size", &FunctionSpace::size )
@@ -324,42 +379,46 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def(
             "create_field",
             []( FunctionSpace const& fs, std::optional<std::string> const& name, std::optional<int> levels,
-                std::optional<int> variables, py::object dtype ) {
+                std::optional<int> variables, std::optional<py::object> dtype ) {
                 util::Config config;
                 if ( name )
-                    config = config | option::name( *name );
+                    config.set(option::name( *name ));
                 // TODO what does it mean in atlas if levels is not set?
                 if ( levels )
-                    config = config | option::levels( *levels );
+                    config.set(option::levels( *levels ));
                 if ( variables )
-                    config = config | option::variables( *variables );
-                config = config | option::datatype( pybindToAtlas( py::dtype::from_args( dtype ) ) );
+                    config.set(option::variables( *variables ));
+                if ( dtype )
+                    config.set( option::datatype( pybindToAtlas( py::dtype::from_args( *dtype ) ) ));
+                else
+                    config.set( option::datatypeT<double>() );
                 return fs.createField( config );
             },
-            "name"_a = std::nullopt, "levels"_a = std::nullopt, "variables"_a = std::nullopt, "dtype"_a );
+            "name"_a = std::nullopt, "levels"_a = std::nullopt, "variables"_a = std::nullopt, "dtype"_a = std::nullopt)
+        .def_property_readonly("lonlat", &FunctionSpace::lonlat );
     py::class_<functionspace::EdgeColumns, FunctionSpace>( m_fs, "EdgeColumns" )
-        .def( py::init( []( Mesh const& m, int halo ) {
-                  return functionspace::EdgeColumns( m, util::Config()( "halo", halo ) );
+        .def( py::init( []( Mesh const& m, int halo, int levels ) {
+                  return functionspace::EdgeColumns( m, util::Config()( "halo", halo )("levels", levels) );
               } ),
-              "mesh"_a, "halo"_a = 0 )
+              "mesh"_a, "halo"_a = 0, "levels"_a = 0 )
         .def_property_readonly( "nb_edges", &functionspace::EdgeColumns::nb_edges )
         .def_property_readonly( "mesh", &functionspace::EdgeColumns::mesh )
         .def_property_readonly( "edges", &functionspace::EdgeColumns::edges )
         .def_property_readonly( "valid", &functionspace::EdgeColumns::valid );
     py::class_<functionspace::NodeColumns, FunctionSpace>( m_fs, "NodeColumns" )
-        .def( py::init( []( Mesh const& m, int halo ) {
-                  return functionspace::NodeColumns( m, util::Config()( "halo", halo ) );
+        .def( py::init( []( Mesh const& m, int halo, int levels ) {
+                  return functionspace::NodeColumns( m, util::Config()( "halo", halo )("levels",levels) );
               } ),
-              "mesh"_a, "halo"_a = 0 )
+              "mesh"_a, "halo"_a = 0, "levels"_a = 0 )
         .def_property_readonly( "nb_nodes", &functionspace::NodeColumns::nb_nodes )
         .def_property_readonly( "mesh", &functionspace::NodeColumns::mesh )
         .def_property_readonly( "nodes", &functionspace::NodeColumns::nodes )
         .def_property_readonly( "valid", &functionspace::NodeColumns::valid );
     py::class_<functionspace::CellColumns, FunctionSpace>( m_fs, "CellColumns" )
-        .def( py::init( []( Mesh const& m, int halo ) {
-                  return functionspace::CellColumns( m, util::Config()( "halo", halo ) );
+        .def( py::init( []( Mesh const& m, int halo, int levels ) {
+                  return functionspace::CellColumns( m, util::Config()( "halo", halo )("levels",levels) );
               } ),
-              "mesh"_a, "halo"_a = 0 )
+              "mesh"_a, "halo"_a = 0, "levels"_a = 0 )
         .def_property_readonly( "nb_cells", &functionspace::CellColumns::nb_cells )
         .def_property_readonly( "mesh", &functionspace::CellColumns::mesh )
         .def_property_readonly( "cells", &functionspace::CellColumns::cells )
@@ -384,11 +443,6 @@ PYBIND11_MODULE( _atlas4py, m ) {
               []( util::Metadata& metadata, std::string const& key ) -> py::object {
                   if ( !metadata.has( key ) )
                       throw std::out_of_range( "key <" + key + "> could not be found" );
-
-                  // TODO: We have to query metadata.get() even though this should
-                  // not be done (see comment in Config::get). We cannot
-                  // avoid this right now because otherwise we cannot query
-                  // the type of the underlying data.
                   return toPyObject( metadata.get().element( key ) );
               } )
         .def( "__repr__", []( util::Metadata const& metadata ) {
@@ -433,6 +487,12 @@ PYBIND11_MODULE( _atlas4py, m ) {
 
     py::class_<output::Gmsh>( m, "Gmsh" )
         .def( py::init( []( std::string const& path ) { return output::Gmsh{ path }; } ), "path"_a )
+        .def( py::init( []( std::string const& path, eckit::Configuration const& config, py::kwargs kwargs ) {
+            util::Config cfg = util::Config(config);
+            cfg.set(to_config(kwargs));
+            return output::Gmsh(path,cfg);
+          }), "path"_a, "config"_a )
+        .def( py::init( []( std::string const& path, py::kwargs kwargs ) {return output::Gmsh{ path, to_config(kwargs) }; } ), "path"_a )
         .def( "__enter__", []( output::Gmsh& gmsh ) { return gmsh; } )
         .def( "__exit__", []( output::Gmsh& gmsh, py::object exc_type, py::object exc_val,
                               py::object exc_tb ) { gmsh.reset( nullptr ); } )
