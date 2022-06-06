@@ -17,7 +17,7 @@ for n in range(field.shape[0]):
    lat = lonlat[n,1] * math.pi / 180.
    view[n] = math.cos(4.*lat)
 
-gmsh = atlas.Gmsh("out.msh", coordinates='xyz')
+gmsh = atlas.Gmsh("example1.msh", coordinates='xyz')
 gmsh.write(mesh)
 gmsh.write(field)
 

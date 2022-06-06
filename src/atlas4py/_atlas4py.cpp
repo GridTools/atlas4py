@@ -17,6 +17,7 @@
 #include "atlas/option/Options.h"
 #include "atlas/output/Gmsh.h"
 #include "atlas/library.h"
+#include "atlas/trans/Trans.h"
 
 #include "eckit/value/Value.h"
 #include "eckit/config/Configuration.h"
@@ -39,18 +40,27 @@ struct type_caster<atlas::array::ArrayShape> : public type_caster<std::vector<at
 
 namespace {
 
-void initialise_sys_argv() {
-    py::module sys = py::module::import("sys");
-    py::list sys_argv = sys.attr("argv");
-    int argc = (int)sys_argv.size();
-    static char** argv = [&]() {
-        char** argv = (char**)malloc(argc * sizeof(char*));
+struct PySys {
+    int argc;
+    char** argv;
+    static const PySys& instance() {
+        static PySys _instance;
+        return _instance;
+    }
+private:
+    PySys() {
+        py::module sys = py::module::import("sys");
+        py::list sys_argv = sys.attr("argv");
+        argc = (int)sys_argv.size();
+        argv = (char**)malloc(argc * sizeof(char*));
         for (int i = 0; i < argc; ++i) {
             argv[i] = (char*)PyUnicode_AsUTF8(sys_argv[i].ptr());
         }
-        return argv;
-    }();
-    atlas::initialise(argc,argv);
+    }
+};
+
+void initialise_sys_argv() {
+    atlas::initialise(PySys::instance().argc,PySys::instance().argv);
 };
 
 void config_set( util::Config& config, const std::string& key, py::handle value ) {
@@ -142,6 +152,18 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
 }  // namespace
 
 PYBIND11_MODULE( _atlas4py, m ) {
+    auto m_library = m.def_submodule( "library" );
+    m_library.def("initialize", []() { atlas::initialise(PySys::instance().argc, PySys::instance().argv);})
+             .def("initialise", []() { atlas::initialise(PySys::instance().argc, PySys::instance().argv);})
+             .def("finalize",   []() { atlas::finalize(); })
+             .def("finalise",   []() { atlas::finalize(); });
+    m_library.attr("version") = atlas::Library::instance().version();
+
+    m.def("initialize", []() { atlas::initialise(PySys::instance().argc, PySys::instance().argv);})
+     .def("initialise", []() { atlas::initialise(PySys::instance().argc, PySys::instance().argv);})
+     .def("finalize",   []() { atlas::finalize(); })
+     .def("finalise",   []() { atlas::finalize(); });
+
     py::class_<PointLonLat>( m, "PointLonLat" )
         .def( py::init( []( double lon, double lat ) {
                   return PointLonLat( { lon, lat } );
@@ -234,6 +256,14 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "regular", &StructuredGrid::regular )
         .def_property_readonly( "periodic", &StructuredGrid::periodic );
 
+    py::class_<GaussianGrid, StructuredGrid>( m, "GaussianGrid" )
+        .def( py::init( []( Grid const& g ) {
+                  return GaussianGrid{ g };
+              } ),
+              "grid"_a )
+        .def_property_readonly( "valid", &GaussianGrid::valid )
+        .def("__bool__", &GaussianGrid::valid);
+
     py::class_<eckit::Configuration>( m, "eckit.Configuration" );
     py::class_<eckit::LocalConfiguration, eckit::Configuration>( m, "eckit.LocalConfiguration" );
 
@@ -257,8 +287,14 @@ PYBIND11_MODULE( _atlas4py, m ) {
             return "_atlas4py.Config("_s + py::str( toPyObject( config.get() ) ) + ")"_s;
         } );
 
+    py::class_<grid::Partitioner>( m, "Partitioner" )
+        .def( py::init( []( py::kwargs kwargs ) { return grid::Partitioner( to_config(kwargs)); } ) )
+        .def( py::init( []( util::Config const& config ) { return grid::Partitioner( config ); } ) )
+        .def( py::init( []( const std::string& type ) { return grid::Partitioner(type); } ) ) 
+        .def( py::init( [](){ return grid::Partitioner(); } ) );
+
     py::class_<MeshGenerator>( m, "MeshGenerator" )
-        // TODO in FunctionSpace below we expose config options, not the whole config object
+        .def( py::init( []( py::kwargs kwargs ) { return MeshGenerator( to_config(kwargs)); } ) )
         .def( py::init( []( util::Config const& config ) { return MeshGenerator( config ); } ) )
         .def( py::init( []( const std::string& type ) { return MeshGenerator(type); } ) ) 
         .def( py::init( [](){ return MeshGenerator(); } ) )
@@ -358,43 +394,21 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def( "flags", []( mesh::HybridElements const& he ) { return he.flags(); },
               py::return_value_policy::reference_internal );
 
-
-
-    auto m_library = m.def_submodule( "library" );
-
-    m_library.def("initialize", []() {initialise_sys_argv();});
-    m_library.def("finalize", [](){atlas::finalise(); } );
-    m_library.def("initialise", []() {initialise_sys_argv();});
-    m_library.def("finalise", [](){atlas::finalise(); } );
-    m_library.attr("version") = atlas::Library::instance().version();
-    m.def("initialize", []() {initialise_sys_argv();});
-    m.def("finalize", []() {atlas::finalize();});
-    m.def("initialise", []() {initialise_sys_argv();});
-    m.def("finalise", []() {atlas::finalize();});
-
     auto m_fs = m.def_submodule( "functionspace" );
     py::class_<FunctionSpace>( m_fs, "FunctionSpace" )
         .def_property_readonly( "size", &FunctionSpace::size )
         .def_property_readonly( "type", &FunctionSpace::type )
         .def(
             "create_field",
-            []( FunctionSpace const& fs, std::optional<std::string> const& name, std::optional<int> levels,
-                std::optional<int> variables, std::optional<py::object> dtype ) {
-                util::Config config;
-                if ( name )
-                    config.set(option::name( *name ));
-                // TODO what does it mean in atlas if levels is not set?
-                if ( levels )
-                    config.set(option::levels( *levels ));
-                if ( variables )
-                    config.set(option::variables( *variables ));
+            []( FunctionSpace const& fs, std::optional<py::object> dtype, py::kwargs kwargs ) {
+                util::Config config = to_config(kwargs);
                 if ( dtype )
                     config.set( option::datatype( pybindToAtlas( py::dtype::from_args( *dtype ) ) ));
                 else
                     config.set( option::datatypeT<double>() );
                 return fs.createField( config );
             },
-            "name"_a = std::nullopt, "levels"_a = std::nullopt, "variables"_a = std::nullopt, "dtype"_a = std::nullopt)
+            "dtype"_a = std::nullopt)
         .def_property_readonly("lonlat", &FunctionSpace::lonlat );
     py::class_<functionspace::EdgeColumns, FunctionSpace>( m_fs, "EdgeColumns" )
         .def( py::init( []( Mesh const& m, int halo, int levels ) {
@@ -423,6 +437,26 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "mesh", &functionspace::CellColumns::mesh )
         .def_property_readonly( "cells", &functionspace::CellColumns::cells )
         .def_property_readonly( "valid", &functionspace::CellColumns::valid );
+
+    py::class_<functionspace::Spectral, FunctionSpace>( m_fs, "Spectral" )
+        .def( py::init( []( FunctionSpace fs ) { return functionspace::Spectral{fs}; } ) )
+        .def( py::init( []( int truncation ) { return functionspace::Spectral( truncation ); } ), "truncation"_a )
+        .def_property_readonly( "nb_spectral_coefficients", &functionspace::Spectral::nb_spectral_coefficients )
+        .def_property_readonly( "nb_spectral_coefficients_global", &functionspace::Spectral::nb_spectral_coefficients_global )
+        .def_property_readonly( "truncation", &functionspace::Spectral::truncation )
+        .def_property_readonly( "valid", &functionspace::Spectral::valid )
+        .def( "__bool__", [](const functionspace::Spectral& self) { return self.valid(); } )
+        .def("parallel_for", []( const functionspace::Spectral& self, const py::function &f) {
+            self.parallel_for<std::function<void(idx_t,idx_t,int,int)>>(f);});
+
+
+    py::class_<functionspace::StructuredColumns, FunctionSpace>( m_fs, "StructuredColumns" )
+        .def( py::init( []( Grid const& g, grid::Partitioner const& p, py::kwargs kwargs ) {
+                  return functionspace::StructuredColumns( g, p, to_config(kwargs) ); } ),
+              "grid"_a, "partitioner"_a )
+        .def( py::init( []( Grid const& g, py::kwargs kwargs ) { return functionspace::StructuredColumns( g, to_config(kwargs) ); } ), "grid"_a )
+        .def_property_readonly( "grid", &functionspace::StructuredColumns::grid )
+        .def_property_readonly( "valid", &functionspace::StructuredColumns::valid );
 
     py::class_<util::Metadata>( m, "Metadata" )
         .def_property_readonly( "keys", &util::Metadata::keys )
@@ -458,6 +492,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "datatype", []( Field& f ) { return atlasToPybind( f.datatype() ); } )
         .def_property( "metadata", py::overload_cast<>( &Field::metadata, py::const_ ),
                        py::overload_cast<>( &Field::metadata ) )
+        .def_property_readonly( "functionspace", py::overload_cast<>( &Field::functionspace, py::const_ ) )
         .def_buffer( []( Field& f ) {
             auto strides = f.strides();
             std::transform( strides.begin(), strides.end(), strides.begin(),
@@ -503,4 +538,17 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def(
             "write", []( output::Gmsh& gmsh, Field const& field, FunctionSpace const& fs ) { gmsh.write( field, fs ); },
             "field"_a, "functionspace"_a );
+
+
+    py::class_<trans::Trans>( m, "Trans" )
+        .def( py::init( [](const FunctionSpace& gp, const FunctionSpace& sp){ return trans::Trans(gp,sp);} ), "gp"_a, "sp"_a )
+        .def( py::init( [](const Grid& grid, int truncation){ return trans::Trans(grid,truncation);} ), "grid"_a, "truncation"_a )
+        .def( "dirtrans", []( trans::Trans& trans, const Field& gpfield, Field& spfield) { trans.dirtrans(gpfield,spfield);} )
+        .def( "invtrans", []( trans::Trans& trans, const Field& spfield, Field& gpfield) { trans.invtrans(spfield,gpfield);} )
+        .def_property_readonly( "truncation", &trans::Trans::truncation )
+        .def_property_readonly( "nb_spectral_coefficients", &trans::Trans::spectralCoefficients )
+        .def_static("backend", [] ( const std::string& backend ){ trans::Trans::backend(backend); } )
+        .def_static("has_backend", [] ( const std::string& backend ){ return trans::Trans::hasBackend(backend); } );
+
+
 }
