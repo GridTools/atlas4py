@@ -1,3 +1,8 @@
+
+if( NOT ATLAS4PY_CMAKE_MINIMUM_REQUIRED_VERSION) 
+ set(ATLAS4PY_CMAKE_MINIMUM_REQUIRED_VERSION 3.14)
+endif()
+
 cmake_minimum_required(VERSION ${ATLAS4PY_CMAKE_MINIMUM_REQUIRED_VERSION})
 
 project(atlas4py LANGUAGES CXX)
@@ -67,12 +72,15 @@ if(NOT atlas_FOUND)
     endif()
 endif()
 
-FetchContent_Declare(
-  pybind11
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        v${ATLAS4PY_PYBIND11_VERSION}
-)
-FetchContent_MakeAvailable(pybind11)
+find_package( pybind11 )
+if( NOT pybind11_FOUND )
+  FetchContent_Declare(
+    pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG        v${ATLAS4PY_PYBIND11_VERSION}
+  )
+  FetchContent_MakeAvailable(pybind11)
+endif()
 
 pybind11_add_module(_atlas4py _atlas4py.cpp)
 target_link_libraries(_atlas4py PUBLIC atlas)
