@@ -373,6 +373,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "cell_connectivity",
                                 py::overload_cast<>( &mesh::Nodes::cell_connectivity, py::const_ ) )
         .def_property_readonly( "lonlat", py::overload_cast<>( &Mesh::Nodes::lonlat, py::const_ ) )
+        .def_property_readonly( "xy", py::overload_cast<>( &Mesh::Nodes::xy, py::const_ ) )
         .def("field", []( mesh::Nodes const& n, std::string const& name ) { return n.field( name ); },
              "name"_a, py::return_value_policy::reference_internal )
         .def( "flags", []( mesh::Nodes const& n ) { return n.flags(); },
@@ -420,6 +421,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "edges", &functionspace::EdgeColumns::edges )
         .def_property_readonly( "valid", &functionspace::EdgeColumns::valid );
     py::class_<functionspace::NodeColumns, FunctionSpace>( m_fs, "NodeColumns" )
+        .def( py::init( []( FunctionSpace fs ) { return functionspace::NodeColumns{fs}; } ) )
         .def( py::init( []( Mesh const& m, int halo, int levels ) {
                   return functionspace::NodeColumns( m, util::Config()( "halo", halo )("levels",levels) );
               } ),
@@ -427,7 +429,9 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "nb_nodes", &functionspace::NodeColumns::nb_nodes )
         .def_property_readonly( "mesh", &functionspace::NodeColumns::mesh )
         .def_property_readonly( "nodes", &functionspace::NodeColumns::nodes )
-        .def_property_readonly( "valid", &functionspace::NodeColumns::valid );
+        .def_property_readonly( "valid", &functionspace::NodeColumns::valid )
+        .def( "__bool__", [](const functionspace::NodeColumns& self) { return self.valid(); } );
+
     py::class_<functionspace::CellColumns, FunctionSpace>( m_fs, "CellColumns" )
         .def( py::init( []( Mesh const& m, int halo, int levels ) {
                   return functionspace::CellColumns( m, util::Config()( "halo", halo )("levels",levels) );
@@ -489,10 +493,14 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "shape", py::overload_cast<>( &Field::shape, py::const_ ) )
         .def_property_readonly( "size", &Field::size )
         .def_property_readonly( "rank", &Field::rank )
+        .def_property_readonly( "levels", &Field::levels )
         .def_property_readonly( "datatype", []( Field& f ) { return atlasToPybind( f.datatype() ); } )
         .def_property( "metadata", py::overload_cast<>( &Field::metadata, py::const_ ),
                        py::overload_cast<>( &Field::metadata ) )
         .def_property_readonly( "functionspace", py::overload_cast<>( &Field::functionspace, py::const_ ) )
+        .def( "halo_exchange", []( Field& f) { f.haloExchange(); })
+        .def_property_readonly( "halo_dirty", []( Field& f) { f.haloExchange(); })
+        .def_property( "halo_dirty", &Field::dirty, &Field::set_dirty, py::return_value_policy::copy)
         .def_buffer( []( Field& f ) {
             auto strides = f.strides();
             std::transform( strides.begin(), strides.end(), strides.begin(),
@@ -532,11 +540,11 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def( "__exit__", []( output::Gmsh& gmsh, py::object exc_type, py::object exc_val,
                               py::object exc_tb ) { gmsh.reset( nullptr ); } )
         .def(
-            "write", []( output::Gmsh& gmsh, Mesh const& mesh ) { gmsh.write( mesh ); }, "mesh"_a )
+            "write", []( output::Gmsh& gmsh, Mesh const& mesh ) { gmsh.write( mesh ); return gmsh; }, "mesh"_a )
         .def(
-            "write", []( output::Gmsh& gmsh, Field const& field ) { gmsh.write( field ); }, "field"_a )
+            "write", []( output::Gmsh& gmsh, Field const& field ) { gmsh.write( field );  return gmsh;}, "field"_a )
         .def(
-            "write", []( output::Gmsh& gmsh, Field const& field, FunctionSpace const& fs ) { gmsh.write( field, fs ); },
+            "write", []( output::Gmsh& gmsh, Field const& field, FunctionSpace const& fs ) { gmsh.write( field, fs );  return gmsh; },
             "field"_a, "functionspace"_a );
 
 
