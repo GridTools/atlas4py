@@ -18,6 +18,9 @@
 #include "atlas/output/Gmsh.h"
 #include "atlas/library.h"
 #include "atlas/trans/Trans.h"
+#include "atlas/interpolation.h"
+#include "atlas/util/function/VortexRollup.h"
+#include "atlas/util/function/SphericalHarmonic.h"
 
 #include "eckit/value/Value.h"
 #include "eckit/config/Configuration.h"
@@ -149,6 +152,7 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
         return { 0 };
 }
 
+
 }  // namespace
 
 PYBIND11_MODULE( _atlas4py, m ) {
@@ -211,8 +215,20 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "size", &Grid::size )
         .def_property_readonly( "projection", &Grid::projection )
         .def_property_readonly( "domain", &Grid::domain )
+        .def( "lonlat", [](Grid const& self) {
+                 return self.lonlat().begin();
+             })
         .def( "__repr__",
               []( Grid const& g ) { return "_atlas4py.Grid("_s + py::str( toPyObject( g.spec().get() ) ) + ")"_s; } );
+
+    py::class_<grid::IteratorLonLat>(m, "IteratorLonLat")
+        .def("__iter__", [](grid::IteratorLonLat& it) { return it; })
+        .def("__next__", [](grid::IteratorLonLat& it) {
+            PointLonLat p;
+            if( !it.next(p) ) {
+                throw py::stop_iteration();
+            }
+            return p;});
 
     py::class_<grid::Spacing>( m, "Spacing" )
         .def( "__len__", &grid::Spacing::size )
@@ -293,12 +309,17 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def( py::init( []( const std::string& type ) { return grid::Partitioner(type); } ) ) 
         .def( py::init( [](){ return grid::Partitioner(); } ) );
 
+    py::class_<grid::MatchingPartitioner,grid::Partitioner>( m, "MatchingPartitioner" )
+        .def( py::init( []( Mesh const& mesh, py::kwargs kwargs ) { return grid::MatchingPartitioner(mesh, to_config(kwargs)); } ) )
+        .def( py::init( []( FunctionSpace const& functionspace, py::kwargs kwargs ) { return grid::MatchingPartitioner(functionspace, to_config(kwargs)); } ) );
+
     py::class_<MeshGenerator>( m, "MeshGenerator" )
         .def( py::init( []( py::kwargs kwargs ) { return MeshGenerator( to_config(kwargs)); } ) )
         .def( py::init( []( util::Config const& config ) { return MeshGenerator( config ); } ) )
         .def( py::init( []( const std::string& type ) { return MeshGenerator(type); } ) ) 
         .def( py::init( [](){ return MeshGenerator(); } ) )
-        .def( "generate", py::overload_cast<Grid const&>( &MeshGenerator::generate, py::const_ ) );
+        .def( "generate", [](MeshGenerator const& self, Grid const& grid){ return self.generate(grid); } )
+        .def( "generate", [](MeshGenerator const& self, Grid const& grid, grid::Partitioner const& partitioner ){ return self.generate(grid, partitioner); } );
 
     py::class_<StructuredMeshGenerator>( m, "StructuredMeshGenerator" )
         // TODO in FunctionSpace below we expose config options, not the whole config object
@@ -308,6 +329,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
 
     py::class_<Mesh>( m, "Mesh" )
         .def( py::init( []( const Grid& grid ) { return Mesh(grid); } ) )
+        .def( py::init( []( const Grid& grid, const grid::Partitioner& partitioner ) { return Mesh(grid,partitioner); } ) )
         .def_property_readonly( "grid", &Mesh::grid )
         .def_property_readonly( "projection", &Mesh::projection )
         .def_property( "nodes", py::overload_cast<>( &Mesh::nodes, py::const_ ), py::overload_cast<>( &Mesh::nodes ) )
@@ -558,5 +580,24 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_static("backend", [] ( const std::string& backend ){ trans::Trans::backend(backend); } )
         .def_static("has_backend", [] ( const std::string& backend ){ return trans::Trans::hasBackend(backend); } );
 
+    py::class_<Interpolation>( m, "Interpolation" )
+        .def( py::init( [](const std::string& type, const FunctionSpace& source, const FunctionSpace& target, py::kwargs kwargs){
+                auto config = to_config(kwargs);
+                config.set("type",type);
+                return Interpolation(config,source,target);
+            } ), "type"_a, "source"_a, "target"_a )
+        .def( py::init( [](const std::string& type, const Grid& source, const Grid& target, py::kwargs kwargs){
+                auto config = to_config(kwargs);
+                config.set("type",type);
+                return Interpolation(config,source,target);
+            } ), "type"_a, "source"_a, "target"_a )
+        .def( "execute", []( Interpolation const& self, const Field& source, Field& target) { return self.execute(source,target);} )
+        .def_property_readonly( "source", &Interpolation::source )
+        .def_property_readonly( "target", &Interpolation::target );
+
+
+    auto m_function = m.def_submodule( "function" );
+    m_function.def("vortex_rollup", [](double lon, double lat, double t) { return util::function::vortex_rollup(lon,lat,t); } );
+    m_function.def("spherical_harmonic", [](double lon, double lat,int n, int m ) { return util::function::spherical_harmonic(n,m,lon,lat); }, "lon"_a, "lat"_a, "n"_a, "m"_a );
 
 }
