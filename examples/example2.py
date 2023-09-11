@@ -52,6 +52,20 @@ def set_spherical_harmonic(field_sp, n, m):
          sp[re] = 1.
          sp[im] = 1.
 
+   import numpy.random as random
+   random.seed(1)
+   rand1=random.rand(len(sp))
+   random.seed(2)
+   rand2=random.rand(len(sp))
+   def spectrum(re,im,_n,_m):
+      if _m==0:
+         sp[re] = pow(_n+1,-5/6)*(rand1[re]-0.5)
+      else:
+         sp[re] = pow(_n+1,-5/6)*(rand1[re]-0.5)
+         sp[im] = pow(_n+1,-5/6)*(rand2[im]-0.5) 
+
+
+   #spectral_functionspace.parallel_for( spectrum )
    spectral_functionspace.parallel_for( spherical_harmonic )
 
 # ------------------------------------------------------------------------
@@ -77,8 +91,8 @@ atlas.initialize() # Required
 init_total_wave_number=16
 init_zonal_wave_number=8
 
-grid = atlas.Grid("O128")
-truncation = 255
+grid = atlas.Grid("F400")
+truncation = 127
 atlas.Trans.backend("ectrans")
 partitioner = atlas.Partitioner("ectrans")
   # 'ectrans' partitioner needs to be used for 'ectrans' Trans backend only.
@@ -88,6 +102,8 @@ if not atlas.GaussianGrid(grid) or not atlas.Trans.has_backend("ectrans"):
    # Fallback to "local" backend
    atlas.Trans.backend("local")
    partitioner = atlas.Partitioner("equal_regions")
+atlas.Trans.backend("local")
+partitioner = atlas.Partitioner("equal_regions")
 
 # Create function spaces
 fs_sp = atlas.functionspace.Spectral(truncation)
@@ -106,7 +122,7 @@ trans.invtrans(field_sp, field_gp)
 
 # Visualisation of gridpoint field
 mesh = atlas.MeshGenerator(type='structured').generate(grid)
-atlas.Gmsh("example2.msh", coordinates='xy').write(mesh).write(field_gp)
+atlas.Gmsh("example2.msh", coordinates='xyz').write(mesh).write(field_gp)
 
 # plot_pyvista(mesh, field_gp, title=grid.name + " - T" + str(truncation) + "; n="+str(init_total_wave_number)+" m="+str(init_zonal_wave_number))
 #    --> only works with mpi-serial for now

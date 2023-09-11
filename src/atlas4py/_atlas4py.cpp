@@ -203,13 +203,14 @@ PYBIND11_MODULE( _atlas4py, m ) {
     py::class_<RectangularDomain, Domain>( m, "RectangularDomain" )
         .def( py::init( []( std::tuple<double, double> xInterval, std::tuple<double, double> yInterval ) {
                   auto [xFrom, xTo] = xInterval;
-                  auto [yFrom, yTo] = xInterval;
+                  auto [yFrom, yTo] = yInterval;
                   return RectangularDomain( { xFrom, xTo }, { yFrom, yTo } );
               } ),
               "x_interval"_a, "y_interval"_a );
 
     py::class_<Grid>( m, "Grid" )
         .def( py::init<const std::string&>() )
+        .def( py::init( []( const std::string& name, const Domain& domain ) { return Grid(name,domain); } ) )
         .def_property_readonly( "name", &Grid::name )
         .def_property_readonly( "uid", &Grid::uid )
         .def_property_readonly( "size", &Grid::size )
@@ -571,8 +572,8 @@ PYBIND11_MODULE( _atlas4py, m ) {
 
 
     py::class_<trans::Trans>( m, "Trans" )
-        .def( py::init( [](const FunctionSpace& gp, const FunctionSpace& sp){ return trans::Trans(gp,sp);} ), "gp"_a, "sp"_a )
-        .def( py::init( [](const Grid& grid, int truncation){ return trans::Trans(grid,truncation);} ), "grid"_a, "truncation"_a )
+        .def( py::init( [](const FunctionSpace& gp, const FunctionSpace& sp, py::kwargs kwargs){ return trans::Trans(gp,sp,to_config(kwargs)); } ), "gp"_a, "sp"_a )
+        .def( py::init( [](const Grid& grid, int truncation, py::kwargs kwargs){ return trans::Trans(grid,truncation,to_config(kwargs));} ), "grid"_a, "truncation"_a )
         .def( "dirtrans", []( trans::Trans& trans, const Field& gpfield, Field& spfield) { trans.dirtrans(gpfield,spfield);} )
         .def( "invtrans", []( trans::Trans& trans, const Field& spfield, Field& gpfield) { trans.invtrans(spfield,gpfield);} )
         .def_property_readonly( "truncation", &trans::Trans::truncation )
