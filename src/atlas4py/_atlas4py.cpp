@@ -231,6 +231,34 @@ PYBIND11_MODULE( _atlas4py, m ) {
             }
             return p;});
 
+    py::class_<UnstructuredGrid, Grid>( m, "UnstructuredGrid" )
+        .def( py::init( [](py::array_t<double> _xy) {
+            py::buffer_info xy = _xy.request();
+            auto xy_data = static_cast<double *>(xy.ptr);
+            auto points = new std::vector<PointXY>(xy.size/2);
+            auto& p = *points;
+            size_t j{0};
+            for(size_t n=0; n<p.size(); ++n) {
+                p[n][0] = xy_data[j++];
+                p[n][1] = xy_data[j++];
+            }
+            return UnstructuredGrid(points);
+        } ) )
+        .def( py::init( [](py::array_t<double> _x, py::array_t<double> _y) {
+            py::buffer_info x = _x.request();
+            py::buffer_info y = _y.request();
+            auto x_data = static_cast<double *>(x.ptr);
+            auto y_data = static_cast<double *>(x.ptr);
+            ATLAS_ASSERT(x.size == y.size);
+            auto points = new std::vector<PointXY>(x.size);
+            auto& p = *points;
+            for(size_t n=0; n<p.size(); ++n) {
+                p[n][0] = x_data[n];
+                p[n][1] = x_data[n];
+            }
+            return UnstructuredGrid(points);
+        } ) );
+
     py::class_<grid::Spacing>( m, "Spacing" )
         .def( "__len__", &grid::Spacing::size )
         .def( "__getitem__", &grid::Spacing::operator[])
