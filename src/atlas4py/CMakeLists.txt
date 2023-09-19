@@ -57,6 +57,7 @@ if(NOT atlas_FOUND)
     FetchContent_MakeAvailable(atlas)
 
     copy_target(atlas)
+    copy_target(atlas_io)
 
     if(_atlas4py_built_eckit)
         # copy atlas' eckit dependencies

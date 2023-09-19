@@ -13,8 +13,8 @@ VERSIONS = dict(
     cmake="3.14.0",
     ecbuild="3.6.3",
     eckit="1.17.1",
-    atlas="0.26.0",
-    pybind11="2.5.0",
+    atlas="develop",
+    pybind11="2.11.1",
     python="3.6",
 )
 
@@ -121,7 +121,7 @@ class CMakeBuild(build_ext):
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
 
 
-PACKAGE_VERSION = "0.29.0.dev14"
+PACKAGE_VERSION = "0.34.0.dev14"
 # Meaning of the version scheme "{major}.{minor}.{patch}.dev{dev}":
 #   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
 #   - {dev} => version of the Python bindings as the commit number in 'master'

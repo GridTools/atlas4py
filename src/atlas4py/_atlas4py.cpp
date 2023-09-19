@@ -234,27 +234,26 @@ PYBIND11_MODULE( _atlas4py, m ) {
     py::class_<UnstructuredGrid, Grid>( m, "UnstructuredGrid" )
         .def( py::init( [](py::array_t<double> _xy) {
             py::buffer_info xy = _xy.request();
-            auto xy_data = static_cast<double *>(xy.ptr);
+            auto xy_data = _xy.unchecked<2>();
             auto points = new std::vector<PointXY>(xy.size/2);
             auto& p = *points;
-            size_t j{0};
             for(size_t n=0; n<p.size(); ++n) {
-                p[n][0] = xy_data[j++];
-                p[n][1] = xy_data[j++];
+                p[n][0] = xy_data(n,0);
+                p[n][1] = xy_data(n,1);
             }
             return UnstructuredGrid(points);
         } ) )
         .def( py::init( [](py::array_t<double> _x, py::array_t<double> _y) {
             py::buffer_info x = _x.request();
             py::buffer_info y = _y.request();
-            auto x_data = static_cast<double *>(x.ptr);
-            auto y_data = static_cast<double *>(x.ptr);
+            auto x_data = _x.unchecked<1>();
+            auto y_data = _y.unchecked<1>();
             ATLAS_ASSERT(x.size == y.size);
             auto points = new std::vector<PointXY>(x.size);
             auto& p = *points;
             for(size_t n=0; n<p.size(); ++n) {
-                p[n][0] = x_data[n];
-                p[n][1] = x_data[n];
+                p[n][0] = x_data(n);
+                p[n][1] = y_data(n);
             }
             return UnstructuredGrid(points);
         } ) );
@@ -461,7 +460,14 @@ PYBIND11_MODULE( _atlas4py, m ) {
                 return fs.createField( config );
             },
             "dtype"_a = std::nullopt)
-        .def_property_readonly("lonlat", &FunctionSpace::lonlat );
+        .def_property_readonly("lonlat", &FunctionSpace::lonlat )
+        .def_property_readonly("ghost", &FunctionSpace::ghost )
+        .def_property_readonly("remote_index", &FunctionSpace::remote_index )
+        .def_property_readonly("partition", &FunctionSpace::partition )
+        .def_property_readonly("global_index", &FunctionSpace::global_index )
+        .def_property_readonly("part", &FunctionSpace::part )
+        .def_property_readonly("nb_parts", &FunctionSpace::nb_parts );
+
     py::class_<functionspace::EdgeColumns, FunctionSpace>( m_fs, "EdgeColumns" )
         .def( py::init( []( Mesh const& m, int halo, int levels ) {
                   return functionspace::EdgeColumns( m, util::Config()( "halo", halo )("levels", levels) );
@@ -512,6 +518,20 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def( py::init( []( Grid const& g, py::kwargs kwargs ) { return functionspace::StructuredColumns( g, to_config(kwargs) ); } ), "grid"_a )
         .def_property_readonly( "grid", &functionspace::StructuredColumns::grid )
         .def_property_readonly( "valid", &functionspace::StructuredColumns::valid );
+
+    py::class_<functionspace::PointCloud, FunctionSpace>( m_fs, "PointCloud" )
+        .def( py::init( []( FunctionSpace fs ) { return functionspace::PointCloud{fs}; } ) )
+        .def( py::init( []( Grid const& grid, py::kwargs kwargs) {
+                  return functionspace::PointCloud( grid, to_config(kwargs) );
+              } ),
+              "grid"_a )
+        .def( py::init( []( Grid const& grid, atlas::grid::Partitioner const& partitioner, py::kwargs kwargs) {
+                  return functionspace::PointCloud( grid, partitioner, to_config(kwargs) );
+              } ),
+              "grid"_a, "partitioner"_a)
+        .def_property_readonly( "valid", &functionspace::PointCloud::valid )
+        .def( "__bool__", [](const functionspace::PointCloud& self) { return self.valid(); } );
+
 
     py::class_<util::Metadata>( m, "Metadata" )
         .def_property_readonly( "keys", &util::Metadata::keys )
