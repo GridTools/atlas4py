@@ -665,6 +665,14 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "target", &Interpolation::target );
 
 
+    py::class_<util::IndexKDTree>( m, "IndexKDTree" )
+        .def( py::init([](){ return IndexKDTree(); }))
+        .def( "reserve", [](util::IndexKDTree& tree, idx_t size) { tree.reserve(size); })
+        .def( "insert", [](util::IndexKDTree& tree, const util::IndexKDTree::Point& p, util::IndexKDTree::Payload ));
+        .def( "build", [](util::IndexKDTree& tree) { tree.build();} )
+        ;
+
+
     auto m_function = m.def_submodule( "function" );
     m_function.def("vortex_rollup", [](double lon, double lat, double t) { return util::function::vortex_rollup(lon,lat,t); } );
     m_function.def("spherical_harmonic", [](double lon, double lat,int n, int m ) { return util::function::spherical_harmonic(n,m,lon,lat); }, "lon"_a, "lat"_a, "n"_a, "m"_a );
