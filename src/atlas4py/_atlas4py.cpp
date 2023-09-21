@@ -175,6 +175,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
               "lon"_a, "lat"_a )
         .def_property_readonly( "lon", py::overload_cast<>( &PointLonLat::lon, py::const_ ) )
         .def_property_readonly( "lat", py::overload_cast<>( &PointLonLat::lat, py::const_ ) )
+        .def( "__getitem__", &PointLonLat::operator() )
         .def( "__repr__", []( PointLonLat const& p ) {
             return "_atlas4py.PointLonLat(lon=" + std::to_string( p.lon() ) + ", lat=" + std::to_string( p.lat() ) +
                    ")";
@@ -186,6 +187,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
               "x"_a, "y"_a )
         .def_property_readonly( "x", py::overload_cast<>( &PointXY::x, py::const_ ) )
         .def_property_readonly( "y", py::overload_cast<>( &PointXY::y, py::const_ ) )
+        .def( "__getitem__", &PointLonLat::operator() )
         .def( "__repr__", []( PointXY const& p ) {
             return "_atlas4py.PointXY(x=" + std::to_string( p.x() ) + ", y=" + std::to_string( p.y() ) + ")";
         } );
@@ -460,13 +462,31 @@ PYBIND11_MODULE( _atlas4py, m ) {
                 return fs.createField( config );
             },
             "dtype"_a = std::nullopt)
+        .def(
+            "create_field_global",
+            []( FunctionSpace const& fs, std::optional<py::object> dtype, py::kwargs kwargs ) {
+                util::Config config = to_config(kwargs);
+                config.set("global",true);
+                if ( dtype )
+                    config.set( option::datatype( pybindToAtlas( py::dtype::from_args( *dtype ) ) ));
+                else
+                    config.set( option::datatypeT<double>() );
+                return fs.createField( config );
+            },
+            "dtype"_a = std::nullopt)
         .def_property_readonly("lonlat", &FunctionSpace::lonlat )
         .def_property_readonly("ghost", &FunctionSpace::ghost )
         .def_property_readonly("remote_index", &FunctionSpace::remote_index )
         .def_property_readonly("partition", &FunctionSpace::partition )
         .def_property_readonly("global_index", &FunctionSpace::global_index )
         .def_property_readonly("part", &FunctionSpace::part )
-        .def_property_readonly("nb_parts", &FunctionSpace::nb_parts );
+        .def_property_readonly("nb_parts", &FunctionSpace::nb_parts )
+        .def("gather", [](FunctionSpace const& fs, Field const& local, Field& global) {
+                return fs.gather(local,global);
+            })
+        .def("scatter", [](FunctionSpace const& fs, Field const& global, Field& local) {
+                return fs.scatter(global,local);
+            });
 
     py::class_<functionspace::EdgeColumns, FunctionSpace>( m_fs, "EdgeColumns" )
         .def( py::init( []( Mesh const& m, int halo, int levels ) {
