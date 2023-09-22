@@ -606,7 +606,6 @@ PYBIND11_MODULE( _atlas4py, m ) {
                        py::overload_cast<>( &Field::metadata ) )
         .def_property_readonly( "functionspace", py::overload_cast<>( &Field::functionspace, py::const_ ) )
         .def( "halo_exchange", []( Field& f) { f.haloExchange(); })
-        .def_property_readonly( "halo_dirty", []( Field& f) { f.haloExchange(); })
         .def_property( "halo_dirty", &Field::dirty, &Field::set_dirty, py::return_value_policy::copy)
         .def_buffer( []( Field& f ) {
             auto strides = f.strides();
