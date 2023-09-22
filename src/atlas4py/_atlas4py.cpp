@@ -168,29 +168,45 @@ PYBIND11_MODULE( _atlas4py, m ) {
      .def("finalize",   []() { atlas::finalize(); })
      .def("finalise",   []() { atlas::finalize(); });
 
-    py::class_<PointLonLat>( m, "PointLonLat" )
+    py::class_<Point2>( m, "Point2" )
+        .def( py::init( []( double x, double y ) {
+                  return Point2( { x, y } );
+              } ) )
+        .def( "__getitem__", &Point2::operator() )
+        .def( "__repr__", []( Point2 const& p ) {
+            return "_atlas4py.Point2(x=" + std::to_string( p.x() ) + ", y=" + std::to_string( p.y() ) + ")";
+        } );
+
+    py::class_<PointLonLat, Point2>( m, "PointLonLat" )
         .def( py::init( []( double lon, double lat ) {
                   return PointLonLat( { lon, lat } );
               } ),
               "lon"_a, "lat"_a )
         .def_property_readonly( "lon", py::overload_cast<>( &PointLonLat::lon, py::const_ ) )
         .def_property_readonly( "lat", py::overload_cast<>( &PointLonLat::lat, py::const_ ) )
-        .def( "__getitem__", &PointLonLat::operator() )
         .def( "__repr__", []( PointLonLat const& p ) {
             return "_atlas4py.PointLonLat(lon=" + std::to_string( p.lon() ) + ", lat=" + std::to_string( p.lat() ) +
                    ")";
         } );
-    py::class_<PointXY>( m, "PointXY" )
-        .def( py::init( []( double x, double y ) {
-                  return PointXY( { x, y } );
-              } ),
-              "x"_a, "y"_a )
-        .def_property_readonly( "x", py::overload_cast<>( &PointXY::x, py::const_ ) )
-        .def_property_readonly( "y", py::overload_cast<>( &PointXY::y, py::const_ ) )
-        .def( "__getitem__", &PointLonLat::operator() )
+    py::class_<PointXY, Point2>( m, "PointXY" )
         .def( "__repr__", []( PointXY const& p ) {
             return "_atlas4py.PointXY(x=" + std::to_string( p.x() ) + ", y=" + std::to_string( p.y() ) + ")";
         } );
+
+    py::class_<Point3>( m, "Point3" )
+        .def( py::init( []( double x, double y, double z ) {
+                  return Point3(x, y, z);
+              } ) )
+        .def( "__getitem__", &Point3::operator() )
+        .def( "__repr__", []( Point3 const& p ) {
+            return "_atlas4py.Point3(" + std::to_string( p(0) ) + ", " + std::to_string( p(1) ) +  ", " + std::to_string( p(2) ) + ")";
+        } );
+
+    py::class_<PointXYZ, Point3>( m, "PointXYZ" )
+            .def( "__repr__", []( PointXYZ const& p ) {
+            return "_atlas4py.PointXYZ(x=" + std::to_string( p.x() ) + ", y=" + std::to_string( p.y() ) + ", z=" + std::to_string( p.z() ) + ")";
+        } );
+
 
     py::class_<Projection>( m, "Projection" ).def( "__repr__", []( Projection const& p ) {
         return "_atlas4py.Projection("_s + py::str( toPyObject( p.spec().get() ) ) + ")"_s;
@@ -665,11 +681,85 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "target", &Interpolation::target );
 
 
+    py::class_<util::IndexKDTree::Value>( m, "IndexKDTreeValue" )
+        .def_property_readonly( "point", [](const util::IndexKDTree::Value& v) { return v.point(); } )
+        .def_property_readonly( "payload", [](const util::IndexKDTree::Value& v) { return v.payload(); } )
+        .def_property_readonly( "index", [](const util::IndexKDTree::Value& v) { return v.payload(); } )
+        .def_property_readonly( "distance", [](const util::IndexKDTree::Value& v) { return v.distance(); } )
+        ;
+
+    py::class_<util::IndexKDTree::ValueList>( m, "IndexKDTreeValueList" )
+        .def_property_readonly( "indices", [](const util::IndexKDTree::ValueList& v) { return v.payloads(); } )
+        .def( "__getitem__", [](const util::IndexKDTree::ValueList& v, size_t i) { return v[i]; } )
+        .def( "size", [](const util::IndexKDTree::ValueList& v) { return v.size(); } )
+        ;
+
     py::class_<util::IndexKDTree>( m, "IndexKDTree" )
-        .def( py::init([](){ return IndexKDTree(); }))
-        .def( "reserve", [](util::IndexKDTree& tree, idx_t size) { tree.reserve(size); })
-        .def( "insert", [](util::IndexKDTree& tree, const util::IndexKDTree::Point& p, util::IndexKDTree::Payload ));
-        .def( "build", [](util::IndexKDTree& tree) { tree.build();} )
+        .def( py::init([](){ return util::IndexKDTree(); }))
+        .def( "reserve", [](util::IndexKDTree& self, idx_t size) { self.reserve(size); })
+        .def( "insert", [](util::IndexKDTree& self, const PointLonLat& point, util::IndexKDTree::Payload payload){ self.insert(point, payload); })
+        .def( "insert", [](util::IndexKDTree& self, const PointXYZ& point, util::IndexKDTree::Payload payload){ self.insert(point, payload); })
+        .def( "build", [](util::IndexKDTree& self) { self.build();} )
+        .def( "build", [](util::IndexKDTree& self, py::array_t<double> points) {
+            py::buffer_info info = points.request();
+            auto size = info.shape[0];
+            self.reserve(size);
+            if (info.ndim == 2 ) {
+                const PointLonLat* lonlat = reinterpret_cast<const PointLonLat*>(info.ptr);
+                for( size_t j=0; j<size; ++j) {
+                    self.insert(lonlat[j], j);
+                }
+            }
+            else if (info.ndim == 3) {
+                const PointXYZ* xyz = reinterpret_cast<const PointXYZ*>(info.ptr);
+                for( size_t j=0; j<size; ++j) {
+                    self.insert(xyz[j], j);
+                }
+            }
+            self.build();
+            } )
+        .def( "closest_point", [](util::IndexKDTree& tree, const PointLonLat& point) {
+            return tree.closestPoint(point); } )
+        .def( "closest_point", [](util::IndexKDTree& tree, const PointXYZ& point) {
+            return tree.closestPoint(point); } )
+        .def( "closest_point", [](util::IndexKDTree& tree, double lon, double lat) {
+            return tree.closestPoint(PointLonLat{lon,lat}); }, "lon"_a, "lat"_a)
+
+        .def( "closest_points", [](util::IndexKDTree& tree, const PointLonLat& point, size_t k) {
+            return tree.closestPoints(point, k); } )
+        .def( "closest_points", [](util::IndexKDTree& tree, const PointXYZ& point, size_t k) {
+            return tree.closestPoints(point, k); } )
+        .def( "closest_points", [](util::IndexKDTree& tree, double lon, double lat, size_t k) {
+            return tree.closestPoints(PointLonLat{lon,lat}, k); }, "lon"_a, "lat"_a, "k"_a )
+
+        .def( "closest_points_within_radius", [](util::IndexKDTree& tree, const PointLonLat& point, double radius) {
+            return tree.closestPointsWithinRadius(point, radius); } )
+        .def( "closest_points_within_radius", [](util::IndexKDTree& tree, const PointXYZ& point, double radius) {
+            return tree.closestPointsWithinRadius(point, radius); } )
+        .def( "closest_points_within_radius", [](util::IndexKDTree& tree, double lon, double lat, double radius) {
+            return tree.closestPointsWithinRadius(PointLonLat{lon,lat}, radius); }, "lon"_a, "lat"_a, "radius"_a )
+
+        .def( "closest_index", [](util::IndexKDTree& tree, const PointLonLat& point) {
+            return tree.closestPoint(point).payload(); } )
+        .def( "closest_index", [](util::IndexKDTree& tree, const PointXYZ& point) {
+            return tree.closestPoint(point).payload(); } )
+        .def( "closest_index", [](util::IndexKDTree& tree, double lon, double lat) {
+            return tree.closestPoint(PointLonLat{lon,lat}).payload(); }, "lon"_a, "lat"_a)
+
+        .def( "closest_indices", [](util::IndexKDTree& tree, const PointLonLat& point, size_t k) {
+            return tree.closestPoints(point, k).payloads(); } )
+        .def( "closest_indices", [](util::IndexKDTree& tree, const PointXYZ& point, size_t k) {
+            return tree.closestPoints(point, k).payloads(); } )
+        .def( "closest_indices", [](util::IndexKDTree& tree, double lon, double lat, size_t k) {
+            return tree.closestPoints(PointLonLat{lon,lat}, k).payloads(); }, "lon"_a, "lat"_a, "k"_a )
+
+        .def( "closest_indices_within_radius", [](util::IndexKDTree& tree, const PointLonLat& point, double radius) {
+            return tree.closestPointsWithinRadius(point, radius).payloads(); } )
+        .def( "closest_indices_within_radius", [](util::IndexKDTree& tree, const PointXYZ& point, double radius) {
+            return tree.closestPointsWithinRadius(point, radius).payloads(); } )
+        .def( "closest_indices_within_radius", [](util::IndexKDTree& tree, double lon, double lat, double radius) {
+            return tree.closestPointsWithinRadius(PointLonLat{lon,lat}, radius).payloads(); }, "lon"_a, "lat"_a, "radius"_a )
+
         ;
 
 
