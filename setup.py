@@ -13,7 +13,7 @@ VERSIONS = dict(
     cmake="3.14.0",
     ecbuild="3.8.0",
     eckit="1.24.0",
-    atlas="develop",
+    atlas="0.35.0",
     pybind11="2.11.1",
     python="3.6",
 )
