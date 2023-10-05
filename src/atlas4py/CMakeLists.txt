@@ -54,6 +54,7 @@ if(NOT atlas_FOUND)
         GIT_REPOSITORY https://github.com/ecmwf/atlas.git
         GIT_TAG        ${ATLAS4PY_ATLAS_VERSION}
     )
+    set( ENABLE_GRIDTOOLS_STORAGE OFF CACHE BOOL "" FORCE )
     FetchContent_MakeAvailable(atlas)
 
     copy_target(atlas)
