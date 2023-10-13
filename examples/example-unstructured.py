@@ -5,6 +5,10 @@ import numpy as np
 
 atlas.initialize() # Required, will also initialize MPI
 
+# constants
+earth_radius = 6371229.
+km = 1000.
+
 xy = np.array([
     [180,0],
     [90,0],
@@ -181,8 +185,8 @@ xy = np.array([
     [60.5478,-11.7037]
 ], dtype=np.float64)
 
-
-# resolution = 2500 * 1000   # approximate ad hoc euclidian resolution in meters
+# approximate ad hoc euclidian resolution in meters
+# resolution = 2500 * km / earth_radius
 # grid = atlas.UnstructuredGrid(xy)
 
 ###  OR pass x,y individually
@@ -190,7 +194,8 @@ xy = np.array([
 
 ### OR existing named grids
 
-resolution = 100 * 1000 # approximate euclidian resolution in meters
+# approximate euclidian resolution in meters adimensionalized to unit sphere
+resolution = 100 * km / earth_radius
 grid = atlas.Grid("H128") # HEALPix grid
 
 # grid = atlas.Grid("O320") # HEALPix grid
@@ -202,7 +207,7 @@ grid = atlas.Grid("H128") # HEALPix grid
 
 ### Create FunctionSpace
 
-functionspace = atlas.functionspace.PointCloud(grid, halo_radius=resolution*2)
+functionspace = atlas.functionspace.PointCloud(grid, halo_radius=resolution*2, geometry="UnitSphere")
 
 ### Access parallelisation information, typically nb_parts == mpi_size, part == mpi_rank
 # print("size", functionspace.size)
@@ -258,7 +263,7 @@ class Search:
   def __init__(self, functionspace):
     self.functionspace = functionspace
     self.lonlat = atlas.make_view(self.functionspace.lonlat)
-    self.kdtree = atlas.IndexKDTree()
+    self.kdtree = atlas.IndexKDTree(geometry="UnitSphere")
     self.kdtree.build(lonlat)
 
   def nearest_indices_within_radius(self, i, radius):

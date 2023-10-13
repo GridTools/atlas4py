@@ -695,6 +695,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
 
     py::class_<util::IndexKDTree>( m, "IndexKDTree" )
         .def( py::init([](){ return util::IndexKDTree(); }))
+        .def( py::init([](const std::string& geometry){ return util::IndexKDTree(util::Config("geometry",geometry)); }), "geometry"_a)
         .def( "reserve", [](util::IndexKDTree& self, idx_t size) { self.reserve(size); })
         .def( "insert", [](util::IndexKDTree& self, const PointLonLat& point, util::IndexKDTree::Payload payload){ self.insert(point, payload); })
         .def( "insert", [](util::IndexKDTree& self, const PointXYZ& point, util::IndexKDTree::Payload payload){ self.insert(point, payload); })
