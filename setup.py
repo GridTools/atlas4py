@@ -11,10 +11,10 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 
 VERSIONS = dict(
     cmake="3.14.0",
-    ecbuild="3.6.3",
-    eckit="1.17.1",
-    atlas="0.26.0",
-    pybind11="2.5.0",
+    ecbuild="3.8.0",
+    eckit="1.24.0",
+    atlas="0.35.1",
+    pybind11="2.11.1",
     python="3.6",
 )
 

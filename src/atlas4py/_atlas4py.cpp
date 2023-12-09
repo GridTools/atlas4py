@@ -16,6 +16,8 @@
 #include "atlas/meshgenerator.h"
 #include "atlas/option/Options.h"
 #include "atlas/output/Gmsh.h"
+#include "atlas/library.h"
+
 #include "eckit/value/Value.h"
 #include "eckit/config/Configuration.h"
 
@@ -35,6 +37,24 @@ struct type_caster<atlas::array::ArrayShape> : public type_caster<std::vector<at
 }  // namespace pybind11
 
 namespace {
+
+void atlasInitialise() {
+    static bool already_initialized = false;
+    if (already_initialized)
+        return;
+    already_initialized = true;
+
+    py::module sys = py::module::import("sys");
+    py::list sys_argv = sys.attr("argv");
+    int argc = sys_argv.size();
+    char** argv = new char*[argc];
+    for (int i = 0; i < argc; ++i) {
+        argv[i] = (char*) PyUnicode_AsUTF8(sys_argv[i].ptr());
+    }
+
+    atlas::initialise(argc, argv);
+}
+
 
 py::object toPyObject( eckit::Value const& v ) {
     if ( v.isBool() )
@@ -97,6 +117,10 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
 }  // namespace
 
 PYBIND11_MODULE( _atlas4py, m ) {
+    m.def("_initialise", atlasInitialise)
+     .def("_finalise",   atlas::finalise);
+    m.attr("version") = atlas::Library::instance().version();
+
     py::class_<PointLonLat>( m, "PointLonLat" )
         .def( py::init( []( double lon, double lat ) {
                   return PointLonLat( { lon, lat } );
