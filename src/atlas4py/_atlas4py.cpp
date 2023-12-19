@@ -39,10 +39,10 @@ struct type_caster<atlas::array::ArrayShape> : public type_caster<std::vector<at
 namespace {
 
 void atlasInitialise() {
-    static bool already_initialized = false;
-    if (already_initialized)
+    static bool already_initialised = false;
+    if (already_initialised)
         return;
-    already_initialized = true;
+    already_initialised = true;
 
     py::module sys = py::module::import("sys");
     py::list sys_argv = sys.attr("argv");
