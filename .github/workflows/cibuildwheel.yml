@@ -7,12 +7,15 @@ on:
     branches: [ master ]
 
 jobs:
-  build-wheels:
+  build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        buildplat:
+          - ubuntu-latest
+          - macos-latest
+        python: ["cp38", "cp39", "cp310"]
     steps:
       - uses: actions/checkout@v4
       - name: Build binary wheels
@@ -22,7 +25,8 @@ jobs:
         env:
           # Linux settings
           CIBW_ARCHS: auto64
-          CIBW_SKIP: "cp36-* cp37-* *musllinux* pp*"
+          CIBW_BUILD: ${{matrix.python}}-*
+          CIBW_SKIP: pp* *musllinux*
           # MacOS settings
           MACOSX_DEPLOYMENT_TARGET: "10.14"
           CIBW_ARCHS_MACOS: x86_64
@@ -32,7 +36,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: wheel-${{matrix.python}}-${{ matrix.os }}
           path: ./dist/*.whl
 
   build_sdist:
@@ -49,17 +53,16 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: sdist
           path: ./dist/*.tar.gz
 
   upload-testpypi:
     name: Upload wheels to TestPyPI
-    needs: [build-wheels, build_sdist]
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: dist
           path: dist
       - name: Publish to test.pypi.org
         if: ${{ github.event_name == 'push' }}
