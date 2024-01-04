@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        buildplat:
+        os:
           - ubuntu-latest
           - macos-latest
         python: ["cp38", "cp39", "cp310"]
