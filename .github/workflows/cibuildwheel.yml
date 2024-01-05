@@ -3,33 +3,40 @@ name: Build and deploy wheel
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
-  build-wheels:
-    name: Build wheels on ${{ matrix.os }}
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }} for ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os:
+          - ubuntu-latest
+          - macos-latest
+        python: ["cp38", "cp39", "cp310"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Build binary wheels
-        uses: pypa/cibuildwheel@v2.3.1
+        uses: pypa/cibuildwheel@v2.16
         with:
           output-dir: dist
         env:
           # Linux settings
           CIBW_ARCHS: auto64
-          CIBW_SKIP: "*musllinux*"
+          CIBW_BUILD: ${{matrix.python}}-*
+          CIBW_SKIP: pp* *musllinux*
           # MacOS settings
           MACOSX_DEPLOYMENT_TARGET: "10.14"
           CIBW_ARCHS_MACOS: x86_64
           # General
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
-      - uses: actions/upload-artifact@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: wheel-${{matrix.python}}-${{ matrix.os }}
           path: ./dist/*.whl
 
   build_sdist:
@@ -38,26 +45,28 @@ jobs:
     steps:
       - name: Set up Python
         uses: actions/setup-python@v2
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install requirements
         run: python -m pip install -r requirements-dev.txt
       - name: Make sdist
         run:  python setup.py sdist
-      - uses: actions/upload-artifact@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: sdist
           path: ./dist/*.tar.gz
 
   upload-testpypi:
     name: Upload wheels to TestPyPI
-    needs: [build-wheels, build_sdist]
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: dist
           path: dist
-      - uses: pypa/gh-action-pypi-publish@v1.4.2
+      - name: Publish to test.pypi.org
+        if: ${{ github.event_name == 'push' }}
+        uses: pypa/gh-action-pypi-publish@v1.8.11
         with:
           user: __token__
           password: ${{ secrets.TESTPYPI_DEPLOY_TOKEN }}
