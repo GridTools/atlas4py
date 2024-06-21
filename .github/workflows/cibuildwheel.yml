@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build binary wheels
-        uses: pypa/cibuildwheel@v2.16
+        uses: pypa/cibuildwheel@v2.19
         with:
           output-dir: dist
         env:
@@ -28,8 +28,8 @@ jobs:
           CIBW_BUILD: ${{matrix.python}}-*
           CIBW_SKIP: pp* *musllinux*
           # MacOS settings
-          MACOSX_DEPLOYMENT_TARGET: "10.14"
-          CIBW_ARCHS_MACOS: x86_64
+          #MACOSX_DEPLOYMENT_TARGET: "10.14"
+          #CIBW_ARCHS_MACOS: x86_64
           # General
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
