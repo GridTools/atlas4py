@@ -8,14 +8,14 @@ on:
 
 jobs:
   build_x86_64_wheels:
-    name: Build wheels on ${{ matrix.os }} for ${{ matrix.python }}
+    name: Build x86_64 wheels on ${{ matrix.os }} for ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os:
           - ubuntu-latest
           - macos-13
-        python: ["cp310", "cp311", "cp312"]
+        python: ["cp39", "cp310", "cp311", "cp312"]
     steps:
       - uses: actions/checkout@v4
       - name: Build binary wheels
@@ -23,12 +23,12 @@ jobs:
         with:
           output-dir: dist
         env:
-          # Python version settings
+          # Wheel version settings
           CIBW_BUILD: ${{matrix.python}}-*
           CIBW_SKIP: pp* *musllinux*
           # Linux archs
           CIBW_ARCHS_LINUX: "x86_64"
-          # MacOS archs (arm64 wheels cannot be tested)
+          # MacOS archs
           CIBW_ARCHS_MACOS: "x86_64"
           MACOSX_DEPLOYMENT_TARGET: "13.0"
           # General
@@ -40,13 +40,12 @@ jobs:
           name: wheel-${{matrix.python}}-${{ matrix.os }}
           path: ./dist/*.whl
 
-  build_wheels:
-    name: Build wheels on ${{ matrix.os }} for ${{ matrix.python }}
+  build_arm64_wheels:
+    name: Build arm64 wheels on ${{ matrix.os }} for ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os:
-          - ubuntu-latest
           - macos-latest
         python: ["cp310", "cp311", "cp312"]
     steps:
@@ -59,12 +58,9 @@ jobs:
           # Python version settings
           CIBW_BUILD: ${{matrix.python}}-*
           CIBW_SKIP: pp* *musllinux*
-          # Linux archs (Intel runner with qemu installed, build Intel and ARM wheels)
-          CIBW_ARCHS_LINUX: "aarch64"
-          # MacOS archs (arm64 wheels cannot be tested)
+          # MacOS archs
           CIBW_ARCHS_MACOS: "arm64"
-          #CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
-          MACOSX_DEPLOYMENT_TARGET: "14.0"
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
           # General
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
@@ -73,7 +69,6 @@ jobs:
         with:
           name: wheel-${{matrix.python}}-${{ matrix.os }}
           path: ./dist/*.whl
-
 
   build_sdist:
     name: Build sdist
@@ -94,7 +89,7 @@ jobs:
 
   upload-testpypi:
     name: Upload wheels to TestPyPI
-    needs: [build_wheels, build_sdist]
+    needs: [build_x86_64_wheels, build_arm64_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

@@ -115,8 +115,17 @@ class CMakeBuild(build_ext):
             "-DATLAS4PY_ATLAS_VERSION=" + VERSIONS["atlas"],
             "-DATLAS4PY_PYBIND11_VERSION=" + VERSIONS["pybind11"],
         ]
-        if CMAKE_OSX_ARCHITECTURES:
-            cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + CMAKE_OSX_ARCHITECTURES)
+        if sys.platform.startswith("darwin"):
+            # Cross-compile support for macOS - respect ARCHFLAGS if set
+            archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
+            archs_values = ";".join(archs)
+            if archs_values:
+                if CMAKE_OSX_ARCHITECTURES:
+                    assert archs_values.strip() == CMAKE_OSX_ARCHITECTURES.strip(), f"CMAKE_OSX_ARCHITECTURES ({CMAKE_OSX_ARCHITECTURES}) env var does not match ARCHFLAGS ({archs_values})"
+                else:
+                    CMAKE_OSX_ARCHITECTURES = archs_values
+            if CMAKE_OSX_ARCHITECTURES:
+                cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + CMAKE_OSX_ARCHITECTURES)
         # print(f"./{self.build_temp}$ " + " ".join(["cmake", ext.sourcedir] + cmake_args))
         subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp)
 
