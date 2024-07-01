@@ -119,12 +119,12 @@ class CMakeBuild(build_ext):
             # Cross-compile support for macOS - respect ARCHFLAGS if set
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
             archs_values = ";".join(archs)
-            if archs_values:
-                if CMAKE_OSX_ARCHITECTURES:
+            if CMAKE_OSX_ARCHITECTURES:
+                if archs_values:
                     assert archs_values.strip() == CMAKE_OSX_ARCHITECTURES.strip(), f"CMAKE_OSX_ARCHITECTURES ({CMAKE_OSX_ARCHITECTURES}) env var does not match ARCHFLAGS ({archs_values})"
                 else:
-                    CMAKE_OSX_ARCHITECTURES = archs_values
-            if CMAKE_OSX_ARCHITECTURES:
+                    archs_values = CMAKE_OSX_ARCHITECTURES
+            if archs_values:
                 cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + CMAKE_OSX_ARCHITECTURES)
         # print(f"./{self.build_temp}$ " + " ".join(["cmake", ext.sourcedir] + cmake_args))
         subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp)
