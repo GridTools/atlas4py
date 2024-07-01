@@ -7,6 +7,39 @@ on:
     branches: [ master ]
 
 jobs:
+  build_x86_64_wheels:
+    name: Build wheels on ${{ matrix.os }} for ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-13
+        python: ["cp310", "cp311", "cp312"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build binary wheels
+        uses: pypa/cibuildwheel@v2.19
+        with:
+          output-dir: dist
+        env:
+          # Python version settings
+          CIBW_BUILD: ${{matrix.python}}-*
+          CIBW_SKIP: pp* *musllinux*
+          # Linux archs
+          CIBW_ARCHS_LINUX: "x86_64"
+          # MacOS archs (arm64 wheels cannot be tested)
+          CIBW_ARCHS_MACOS: "x86_64"
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+          # General
+          CIBW_TEST_REQUIRES: -r requirements-dev.txt
+          CIBW_TEST_COMMAND: pytest -v {project}/tests
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{matrix.python}}-${{ matrix.os }}
+          path: ./dist/*.whl
+
   build_wheels:
     name: Build wheels on ${{ matrix.os }} for ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
@@ -18,10 +51,6 @@ jobs:
         python: ["cp310", "cp311", "cp312"]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Build binary wheels
         uses: pypa/cibuildwheel@v2.19
         with:
@@ -31,11 +60,11 @@ jobs:
           CIBW_BUILD: ${{matrix.python}}-*
           CIBW_SKIP: pp* *musllinux*
           # Linux archs (Intel runner with qemu installed, build Intel and ARM wheels)
-          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          CIBW_ARCHS_LINUX: "aarch64"
           # MacOS archs (arm64 wheels cannot be tested)
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
-          CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
-          MACOSX_DEPLOYMENT_TARGET: "14.5"
+          CIBW_ARCHS_MACOS: "arm64"
+          #CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
+          MACOSX_DEPLOYMENT_TARGET: "14.0"
           # General
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
           CIBW_TEST_COMMAND: pytest -v {project}/tests
@@ -44,6 +73,7 @@ jobs:
         with:
           name: wheel-${{matrix.python}}-${{ matrix.os }}
           path: ./dist/*.whl
+
 
   build_sdist:
     name: Build sdist
