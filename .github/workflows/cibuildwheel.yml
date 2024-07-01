@@ -28,9 +28,9 @@ jobs:
           CIBW_BUILD: ${{matrix.python}}-*
           CIBW_SKIP: pp* *musllinux*
           # MacOS settings
-          MACOSX_DEPLOYMENT_TARGET: "14.5"
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
           #CIBW_ARCHS_MACOS: "universal2"
-          CIBW_TEST_SKIP: "*arm64"
+          # CIBW_TEST_SKIP: "*arm64"
           # CMAKE_OSX_ARCHITECTURES: "arm64;x86_64"
           # General
           CIBW_TEST_REQUIRES: -r requirements-dev.txt
