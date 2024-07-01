@@ -53,7 +53,6 @@ CLASSIFIERS = [
 PYTHON_REQUIRES = f">={VERSIONS['python']}"
 
 CMAKE_MIN_VERSION = f"{VERSIONS['cmake']}"
-CMAKE_OSX_ARCHITECTURES = os.environ.get("CMAKE_OSX_ARCHITECTURES", None)
 BUILD_JOBS = os.cpu_count()
 
 
@@ -118,12 +117,7 @@ class CMakeBuild(build_ext):
         if sys.platform.startswith("darwin"):
             # Cross-compile support for macOS - respect ARCHFLAGS if set
             archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
-            archs_values = ";".join(archs)
-            if CMAKE_OSX_ARCHITECTURES:
-                if archs_values:
-                    assert archs_values.strip() == CMAKE_OSX_ARCHITECTURES.strip(), f"CMAKE_OSX_ARCHITECTURES ({CMAKE_OSX_ARCHITECTURES}) env var does not match ARCHFLAGS ({archs_values})"
-                else:
-                    archs_values = CMAKE_OSX_ARCHITECTURES
+            archs_values = ";".join(archs).strip()
             if archs_values:
                 cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + archs_values)
         # print(f"./{self.build_temp}$ " + " ".join(["cmake", ext.sourcedir] + cmake_args))
