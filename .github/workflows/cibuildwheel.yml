@@ -47,7 +47,7 @@ jobs:
       matrix:
         os:
           - macos-latest
-        python: ["cp310", "cp311", "cp312"]
+        python: ["cp39", "cp310", "cp311", "cp312"]
     steps:
       - uses: actions/checkout@v4
       - name: Build binary wheels
