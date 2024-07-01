@@ -134,7 +134,7 @@ class CMakeBuild(build_ext):
         build_args = ["--config", cfg, "-j", str(BUILD_JOBS)]
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
 
-PACKAGE_VERSION = "0.35.1.dev0"
+PACKAGE_VERSION = "0.35.1.dev15"
 # Meaning of the version scheme "{major}.{minor}.{patch}.dev{dev}":
 #   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
 #   - {dev} => version of the Python bindings as the commit number in 'master'

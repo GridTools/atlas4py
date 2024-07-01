@@ -37,7 +37,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{matrix.python}}-${{ matrix.os }}
+          name: wheel-${{matrix.python}}-${{ matrix.os }}-x86_64
           path: ./dist/*.whl
 
   build_arm64_wheels:
@@ -55,7 +55,7 @@ jobs:
         with:
           output-dir: dist
         env:
-          # Python version settings
+          # Wheel version settings
           CIBW_BUILD: ${{matrix.python}}-*
           CIBW_SKIP: pp* *musllinux*
           # MacOS archs
@@ -67,7 +67,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{matrix.python}}-${{ matrix.os }}
+          name: wheel-${{matrix.python}}-${{ matrix.os }}-arm64
           path: ./dist/*.whl
 
   build_sdist:
