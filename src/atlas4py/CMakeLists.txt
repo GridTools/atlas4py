@@ -8,10 +8,12 @@ set(CMAKE_CXX_STANDARD 17)
 include(FetchContent)
 
 function(copy_target ct_tgt)
-    add_custom_target(copy_${ct_tgt} ALL
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${ct_tgt}> ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-        DEPENDS ${ct_tgt}
-    )
+    if(NOT TARGET copy_${ct_tgt})
+        add_custom_target(copy_${ct_tgt} ALL
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${ct_tgt}> ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+            DEPENDS ${ct_tgt}
+        )
+    endif()
 endfunction()
 
 find_package(atlas QUIET PATHS $ENV{ATLAS_INSTALL_DIR})
@@ -57,14 +59,16 @@ if(NOT atlas_FOUND)
 
     if(_atlas4py_built_eckit)
         # copy atlas' eckit dependencies
-        get_target_property(deps atlas LINK_LIBRARIES)
-        get_target_property(deps_interface atlas INTERFACE_LINK_LIBRARIES)
-        list(APPEND deps ${deps_interface})
-        list(REMOVE_DUPLICATES deps)
-        foreach(dep IN LISTS deps)
-            if(dep MATCHES "eckit.*")
-                copy_target(${dep})
-            endif()
+        foreach(lib "atlas" "atlas_io")
+            get_target_property(deps ${lib} LINK_LIBRARIES)
+            get_target_property(deps_interface ${lib} INTERFACE_LINK_LIBRARIES)
+            list(APPEND deps ${deps_interface})
+            list(REMOVE_DUPLICATES deps)
+            foreach(dep IN LISTS deps)
+                if(dep MATCHES "eckit.*")
+                    copy_target(${dep})
+                endif()
+            endforeach()
         endforeach()
     endif()
 endif()
