@@ -115,7 +115,7 @@ class CMakeBuild(build_ext):
             "-DATLAS4PY_PYBIND11_VERSION=" + VERSIONS["pybind11"],
             # TODO(tehrengruber): Re-enable. Using ECKIT_CODEC currently fails with:
             # `ImportError: libeckit_codec.so: cannot open shared object file: No such file or directory`
-            "-DENABLE_ECKIT_CODEC=Off",  # disable since broken right now
+            "-DENABLE_ECKIT_CODEC=Off",
         ]
         if sys.platform.startswith("darwin"):
             # Cross-compile support for macOS - respect ARCHFLAGS if set
