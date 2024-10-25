@@ -124,7 +124,6 @@ class CMakeBuild(build_ext):
             if archs_values:
                 cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + archs_values)
         # print(f"./{self.build_temp}$ " + " ".join(["cmake", ext.sourcedir] + cmake_args))
-        print(" ".join(["cmake", ext.sourcedir] + cmake_args))
         subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp)
 
         # Run CMake build
