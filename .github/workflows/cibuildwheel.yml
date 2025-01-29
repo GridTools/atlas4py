@@ -15,6 +15,7 @@ jobs:
         os:
           - ubuntu-latest
           - macos-13
+          - ubuntu-24.04-arm
         python: ["cp39", "cp310", "cp311", "cp312"]
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +28,7 @@ jobs:
           CIBW_BUILD: ${{matrix.python}}-*
           CIBW_SKIP: pp* *musllinux*
           # Linux archs
-          CIBW_ARCHS_LINUX: "x86_64"
+          CIBW_ARCHS_LINUX: ${{ fromJSON('["x86_64", "aarch64"]')[matrix.os == 'ubuntu-24.04-arm'] }} # poor man ternary https://github.com/orgs/community/discussions/25725#discussioncomment-3248924
           # MacOS archs
           CIBW_ARCHS_MACOS: "x86_64"
           MACOSX_DEPLOYMENT_TARGET: "13.0"
@@ -37,7 +38,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{matrix.python}}-${{ matrix.os }}-x86_64
+          name: wheel-${{matrix.python}}-${{ matrix.os }}
           path: ./dist/*.whl
 
   build_arm64_wheels:
