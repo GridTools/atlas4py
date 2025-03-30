@@ -11,8 +11,8 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 
 VERSIONS = dict(
     cmake="3.14.0",
-    ecbuild="3.8.0",
-    eckit="1.24.0",
+    ecbuild="3.9.1",
+    eckit="1.28.6",
     atlas="0.35.1",
     pybind11="2.11.1",
     python="3.6",
@@ -72,7 +72,9 @@ class CMakeBuild(build_ext):
                 + ", ".join(e.name for e in self.extensions)
             )
 
-        cmake_version = LooseVersion(re.search(r"version\s*([\d.]+)", out.decode()).group(1))
+        cmake_version = LooseVersion(
+            re.search(r"version\s*([\d.]+)", out.decode()).group(1)
+        )
         if cmake_version < CMAKE_MIN_VERSION:
             raise RuntimeError(f"CMake >= {CMAKE_MIN_VERSION} is required on Windows")
 
@@ -121,14 +123,19 @@ class CMakeBuild(build_ext):
             if archs_values:
                 cmake_args.append("-DCMAKE_OSX_ARCHITECTURES=" + archs_values)
         # print(f"./{self.build_temp}$ " + " ".join(["cmake", ext.sourcedir] + cmake_args))
-        subprocess.check_call(["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp)
+        subprocess.check_call(
+            ["cmake", ext.sourcedir] + cmake_args, cwd=self.build_temp
+        )
 
         # Run CMake build
         print("-" * 10, "Building extensions", "-" * 40)
         build_args = ["--config", cfg, "-j", str(BUILD_JOBS)]
-        subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
+        subprocess.check_call(
+            ["cmake", "--build", "."] + build_args, cwd=self.build_temp
+        )
 
-PACKAGE_VERSION = "0.35.1.dev15"
+
+PACKAGE_VERSION = "0.35.1.dev16"
 # Meaning of the version scheme "{major}.{minor}.{patch}.dev{dev}":
 #   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
 #   - {dev} => version of the Python bindings as the commit number in 'master'
