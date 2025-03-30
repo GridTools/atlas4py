@@ -16,7 +16,7 @@ jobs:
           - ubuntu-latest
           - ubuntu-24.04-arm
           - macos-13 # x86
-          # - macos-latest # arm
+          - macos-latest # arm
         python: ["cp39", "cp310", "cp311", "cp312"]
     steps:
       - uses: actions/checkout@v4
