@@ -135,7 +135,7 @@ class CMakeBuild(build_ext):
         )
 
 
-PACKAGE_VERSION = "0.35.1.dev16"
+PACKAGE_VERSION = "0.35.1.dev17"
 # Meaning of the version scheme "{major}.{minor}.{patch}.dev{dev}":
 #   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
 #   - {dev} => version of the Python bindings as the commit number in 'master'
