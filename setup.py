@@ -113,6 +113,7 @@ class CMakeBuild(build_ext):
             "-DATLAS4PY_ECKIT_VERSION=" + VERSIONS["eckit"],
             "-DATLAS4PY_ATLAS_VERSION=" + VERSIONS["atlas"],
             "-DATLAS4PY_PYBIND11_VERSION=" + VERSIONS["pybind11"],
+            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         ]
         if sys.platform.startswith("darwin"):
             # Cross-compile support for macOS - respect ARCHFLAGS if set
@@ -128,7 +129,7 @@ class CMakeBuild(build_ext):
         build_args = ["--config", cfg, "-j", str(BUILD_JOBS)]
         subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=self.build_temp)
 
-PACKAGE_VERSION = "0.35.1.dev15"
+PACKAGE_VERSION = "0.35.1.dev16"
 # Meaning of the version scheme "{major}.{minor}.{patch}.dev{dev}":
 #   - {major}.{minor}.{patch} => version of the atlas C++ library (hardcoded in 'setup.py')
 #   - {dev} => version of the Python bindings as the commit number in 'master'
