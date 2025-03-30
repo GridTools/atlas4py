@@ -40,35 +40,36 @@ jobs:
           name: wheel-${{matrix.python}}-${{ matrix.os }}-x86_64
           path: ./dist/*.whl
 
-  build_arm64_wheels:
-    name: Build arm64 wheels on ${{ matrix.os }} for ${{ matrix.python }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os:
-          - macos-latest
-        python: ["cp39", "cp310", "cp311", "cp312"]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build binary wheels
-        uses: pypa/cibuildwheel@v2.19
-        with:
-          output-dir: dist
-        env:
-          # Wheel version settings
-          CIBW_BUILD: ${{matrix.python}}-*
-          CIBW_SKIP: pp* *musllinux*
-          # MacOS archs
-          CIBW_ARCHS_MACOS: "arm64"
-          MACOSX_DEPLOYMENT_TARGET: "14.0"
-          # General
-          CIBW_TEST_REQUIRES: -r requirements-dev.txt
-          CIBW_TEST_COMMAND: pytest -v {project}/tests
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel-${{matrix.python}}-${{ matrix.os }}-arm64
-          path: ./dist/*.whl
+  # TODO: fix build (probably needs update of eckit) and re-enable
+  # build_arm64_wheels:
+  #   name: Build arm64 wheels on ${{ matrix.os }} for ${{ matrix.python }}
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     matrix:
+  #       os:
+  #         - macos-latest
+  #       python: ["cp39", "cp310", "cp311", "cp312"]
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Build binary wheels
+  #       uses: pypa/cibuildwheel@v2.19
+  #       with:
+  #         output-dir: dist
+  #       env:
+  #         # Wheel version settings
+  #         CIBW_BUILD: ${{matrix.python}}-*
+  #         CIBW_SKIP: pp* *musllinux*
+  #         # MacOS archs
+  #         CIBW_ARCHS_MACOS: "arm64"
+  #         MACOSX_DEPLOYMENT_TARGET: "14.0"
+  #         # General
+  #         CIBW_TEST_REQUIRES: -r requirements-dev.txt
+  #         CIBW_TEST_COMMAND: pytest -v {project}/tests
+  #     - name: Upload artifact
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wheel-${{matrix.python}}-${{ matrix.os }}-arm64
+  #         path: ./dist/*.whl
 
   build_sdist:
     name: Build sdist
