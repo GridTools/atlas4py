@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION ${ATLAS4PY_CMAKE_MINIMUM_REQUIRED_VERSION})
+cmake_minimum_required(VERSION 3.25.0)
 
 project(atlas4py LANGUAGES CXX)
 
@@ -69,15 +69,20 @@ if(NOT atlas_FOUND)
     endif()
 endif()
 
-find_package( pybind11 )
-if( NOT pybind11_FOUND )
-  FetchContent_Declare(
-    pybind11
-    GIT_REPOSITORY https://github.com/pybind/pybind11.git
-    GIT_TAG        v${ATLAS4PY_PYBIND11_VERSION}
-  )
-  FetchContent_MakeAvailable(pybind11)
+find_package(pybind11)
+
+if(APPLE)
+    set(rpath_origin_install_libdir "@loader_path/${CMAKE_INSTALL_LIBDIR}")
+else()
+    set(rpath_origin_install_libdir "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
 endif()
 
 pybind11_add_module(_atlas4py _atlas4py.cpp)
 target_link_libraries(_atlas4py PUBLIC atlas)
+install(TARGETS _atlas4py DESTINATION .)
+set_target_properties(_atlas4py PROPERTIES INSTALL_RPATH "${rpath_origin_install_libdir}")
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
+    DESTINATION .
+    FILES_MATCHING PATTERN "*.py"
+)
