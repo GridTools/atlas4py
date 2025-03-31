@@ -4,3 +4,4 @@ numpy>=1.17
 pytest>=6.1
 tox>=4.0
 setuptools>=69
+build>=1.2.2
