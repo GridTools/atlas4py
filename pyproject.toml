@@ -1,15 +1,70 @@
 [build-system]
-requires = ["cmake", "setuptools>=40.8.0", "wheel"]
-build-backend = "setuptools.build_meta"
+build-backend = 'scikit_build_core.build'
+requires = [
+    'scikit-build-core>=0.10.7',
+    'wheel>=0.45.1',
+    'pybind11>=2.11.1',
+]
+
+[project]
+dependencies = [
+  'numpy>=1.23',
+  'packaging>=20.0'
+]
+
+description = 'Python bindings for Atlas: a ECMWF library for parallel data-structures'
+name = 'atlas4py'
+version = '0.41.1.dev0'
+license = {text = "Apache License 2.0"}
+readme = {file = 'README.md', content-type = 'text/markdown'}
+authors = [{email = 'willem.deconinck@ecmwf.int'}, {name = 'Willem Deconinck'}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+
+[project.urls]
+repository = 'https://github.com/GridTools/atlas4py'
+
+[project.optional-dependencies]
+test = ['pytest', 'pytest-cache']
+
+[tool.scikit-build]
+minimum-version = '0.5'
+cmake.minimum-version = '3.25'
+cmake.verbose = true
+cmake.source-dir = "src/atlas4py"
+cmake.build-type = "Release"
+cmake.args = [
+    #"-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
+    #"-DCMAKE_INSTALL_RPATH=" + RPATH,
+    #"-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON",
+    "-DATLAS4PY_ECBUILD_VERSION=3.9.1",
+    "-DATLAS4PY_ECKIT_VERSION=1.28.6",
+    "-DATLAS4PY_ATLAS_VERSION=0.41.1",
+    "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=build",
+]
+wheel.expand-macos-universal-tags = true
+wheel.install-dir = "atlas4py"
+wheel.packages = []
+wheel.license-files = []
 
 [tool.black]
 line-length = 99
 target_version = ['py36', 'py37', 'py38']
 include = '\.pyi?$'
 exclude = '''
-/(
-    \.git
-  | \.gt_cache
+/(versionche
   | \.hg
   | \.mypy_cache
   | \.tox
