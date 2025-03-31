@@ -46,9 +46,6 @@ cmake.verbose = true
 cmake.source-dir = "src/atlas4py"
 cmake.build-type = "Release"
 cmake.args = [
-    #"-DCMAKE_BUILD_WITH_INSTALL_RPATH=ON",
-    #"-DCMAKE_INSTALL_RPATH=" + RPATH,
-    #"-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON",
     "-DATLAS4PY_ECBUILD_VERSION=3.9.1",
     "-DATLAS4PY_ECKIT_VERSION=1.28.6",
     "-DATLAS4PY_ATLAS_VERSION=0.41.1",
@@ -64,7 +61,10 @@ line-length = 99
 target_version = ['py36', 'py37', 'py38']
 include = '\.pyi?$'
 exclude = '''
-/(versionche
+
+/(
+    \.git  
+  | \.gt_cache  
   | \.hg
   | \.mypy_cache
   | \.tox
