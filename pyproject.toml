@@ -63,8 +63,8 @@ include = '\.pyi?$'
 exclude = '''
 
 /(
-    \.git  
-  | \.gt_cache  
+    \.git
+  | \.gt_cache
   | \.hg
   | \.mypy_cache
   | \.tox
