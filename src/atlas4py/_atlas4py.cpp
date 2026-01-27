@@ -116,10 +116,14 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
 
 }  // namespace
 
+#define STRINGIFY(s) STRINGIFY_HELPER(s)
+#define STRINGIFY_HELPER(s) #s
+
 PYBIND11_MODULE( _atlas4py, m ) {
     m.def("_initialise", atlasInitialise)
      .def("_finalise",   atlas::finalise);
     m.attr("version") = atlas::Library::instance().version();
+    m.attr("__version__") = STRINGIFY(ATLAS4PY_VERSION_STRING);
 
     py::class_<PointLonLat>( m, "PointLonLat" )
         .def( py::init( []( double lon, double lat ) {
