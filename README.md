@@ -8,8 +8,10 @@ This whole work is very *experimental* and must be understood as a proof of conc
 
 If the atlas library is already installed in a non-standard location, the path to atlas can be specified by:
 ```
-export ATLAS_INSTALL_DIR=<path-to-atlas-installation>
+export atlas_ROOT=<path-to-atlas-installation>
 ```
+or other environment variables recognized by CMake [find_package(atlas)](https://cmake.org/cmake/help/latest/command/find_package.html)
+
 If atlas is not found it will be automatically downloaded and compiled by atlas4py.
 
 Experimental pre-built packages can be found in [TestPyPI](https://test.pypi.org/project/atlas4py/) and installed with `pip`:

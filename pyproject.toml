@@ -14,7 +14,7 @@ dependencies = [
 
 description = 'Python bindings for Atlas: a ECMWF library for parallel data-structures'
 name = 'atlas4py'
-version = '0.41.1.dev1'
+version = '0.41.1.dev1' # <major>.<minor>.<patch>.dev<dev> : <atlas.major>.<atlas.minor>.<atlas.patch>.dev<atlas4py.dev>
 license = {text = "Apache License 2.0"}
 readme = {file = 'README.md', content-type = 'text/markdown'}
 authors = [{email = 'willem.deconinck@ecmwf.int'}, {name = 'Willem Deconinck'}]
@@ -41,6 +41,7 @@ test = ['pytest', 'pytest-cache']
 
 [tool.scikit-build]
 minimum-version = '0.5'
+build-dir="build/{wheel_tag}"
 cmake.minimum-version = '3.25'
 cmake.verbose = true
 cmake.source-dir = "src/atlas4py"
@@ -48,8 +49,7 @@ cmake.build-type = "Release"
 cmake.args = [
     "-DATLAS4PY_ECBUILD_VERSION=3.9.1",
     "-DATLAS4PY_ECKIT_VERSION=1.28.6",
-    "-DATLAS4PY_ATLAS_VERSION=0.41.1",
-    "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=build",
+    "-DATLAS4PY_ATLAS_VERSION=0.41.1"
 ]
 wheel.expand-macos-universal-tags = true
 wheel.install-dir = "atlas4py"
@@ -75,3 +75,12 @@ exclude = '''
   | dist
 )/
 '''
+
+[tool.bumpversion]
+# To update atlas4py dev version:
+#    pip install bump-my-version
+#    bump-my-version bump dev
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
+serialize = ["{major}.{minor}.{patch}.dev{dev}"]
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
