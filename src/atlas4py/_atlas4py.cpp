@@ -160,7 +160,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
     py::class_<RectangularDomain, Domain>( m, "RectangularDomain" )
         .def( py::init( []( std::tuple<double, double> xInterval, std::tuple<double, double> yInterval ) {
                   auto [xFrom, xTo] = xInterval;
-                  auto [yFrom, yTo] = xInterval;
+                  auto [yFrom, yTo] = yInterval;
                   return RectangularDomain( { xFrom, xTo }, { yFrom, yTo } );
               } ),
               "x_interval"_a, "y_interval"_a );
