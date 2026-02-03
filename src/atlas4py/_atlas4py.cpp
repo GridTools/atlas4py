@@ -41,6 +41,7 @@ namespace pluto {
 #include "eckit/config/Configuration.h"
 
 #include "_atlas4py_Config.hpp"
+#include "mpi/_mpi.hpp"
 
 namespace nb = ::nanobind;
 
@@ -224,6 +225,7 @@ NB_MODULE( _atlas4py, m ) {
      .def("_finalise",   atlas::finalise);
     m.attr("__version__") = STRINGIFY(ATLAS4PY_VERSION_STRING);
 
+    atlas4py::bind_submodule_mpi( m );
     atlas4py::bind_Config( m );
 
     nb::class_<PointLonLat>( m, "PointLonLat" )

@@ -1,6 +1,7 @@
 import atlas4py
 import numpy as np
 import pytest
+import importlib.util
 
 
 
@@ -412,3 +413,136 @@ def test_config_from_file_format_is_guard(tmp_path):
         atlas4py.Config.from_file(test_config_yaml, format="toml")
 
     assert "does not select a parser or validate the file contents" in atlas4py.Config.from_file.__doc__
+
+class Mock_mpi4py_MPI_Comm:
+    def __init__(self, handle=0):
+        self.handle = handle
+    def toint(self):
+        return self.handle
+
+
+def test_mpi_comm():
+    assert atlas4py.mpi.comm().name == "world"  # the default comm is 'world'
+    assert atlas4py.mpi.comm("world").name == "world"
+    assert atlas4py.mpi.comm("self").name == "self"
+    atlas4py.mpi.push("self")  # the new default comm is now 'self'
+    assert atlas4py.mpi.comm().name == "self"
+    assert atlas4py.mpi.size() == 1
+    assert atlas4py.mpi.rank() == 0
+    atlas4py.mpi.pop()  # the default comm is back to 'world'
+    assert atlas4py.mpi.comm().name == "world"
+    assert atlas4py.mpi.comm("self").size == 1
+    assert atlas4py.mpi.comm("self").rank == 0
+    assert atlas4py.mpi.comm("world") == atlas4py.mpi.COMM_WORLD
+    assert atlas4py.mpi.comm("self") == atlas4py.mpi.COMM_SELF
+
+
+def test_mpi_comm_to_from_int():
+    world_int = int(atlas4py.mpi.comm("world"))
+    comm_from_int = atlas4py.mpi.comm(world_int)
+    assert isinstance(comm_from_int, atlas4py.mpi.Comm)
+    assert comm_from_int.name == "world"
+    assert comm_from_int == atlas4py.mpi.comm("world")
+    assert atlas4py.mpi.has_comm("world")
+
+    # This can be used to create a mpi4py.MPI.Comm from an
+    # atlas4py.mpi.Comm and vice versa
+    if importlib.util.find_spec("mpi4py") is not None:
+        import mpi4py.MPI
+        mpi4py_comm = mpi4py.MPI.Comm.fromint(comm_from_int)
+        atlas4py_comm = atlas4py.mpi.comm(mpi4py_comm.toint())
+        assert atlas4py_comm.name == "world"
+        # Also works directly with the mpi4py comm object,
+        # as long as it has a toint() method that returns the correct int value for the comm
+        atlas4py_comm = atlas4py.mpi.comm(mpi4py_comm)
+        assert atlas4py_comm.name == "world"
+
+
+def test_mpi_comm_registration():
+    my_comm = atlas4py.mpi.comm("self")  # or from another source, e.g. mpi4py
+    atlas4py.mpi.register_comm("my_comm", my_comm)
+    assert atlas4py.mpi.has_comm("my_comm") == True
+
+    # to register comm coming from mpi4py
+    atlas4py.mpi.register_comm("my_comm_from_int", int(my_comm))
+    assert atlas4py.mpi.has_comm("my_comm_from_int") == True
+
+    # using comms, e.g. by mpi4py.MPI.Comm
+    mock_mpi4py_comm_6 = Mock_mpi4py_MPI_Comm(6)
+    atlas4py.mpi.register_comm("my_comm_from_mpi4py", mock_mpi4py_comm_6)
+    assert atlas4py.mpi.has_comm("my_comm_from_mpi4py") == True
+
+    # change the default comm to the newly registered one
+    atlas4py.mpi.set_default_comm("my_comm")
+    assert atlas4py.mpi.comm().name == "my_comm"
+
+    atlas4py.mpi.set_default_comm("world")
+
+    # When eckit::mpi::unregisterComm is available (from eckit 2.0.0)
+    if hasattr(atlas4py.mpi, "unregister_comm"):
+        atlas4py.mpi.unregister_comm("my_comm")
+        assert atlas4py.mpi.has_comm("my_comm") == False
+
+def test_mpi_scope():
+    mpi = atlas4py.mpi
+    comm_scope_1 = mpi.register_comm("scope 1", atlas4py.mpi.COMM_WORLD)
+    comm_scope_2 = mpi.register_comm("scope 2", atlas4py.mpi.COMM_SELF)
+
+    assert mpi.comm().name == "world"
+
+    # using named comms
+    with mpi.Scope("scope 1"):
+        assert mpi.comm().name == "scope 1"
+        with mpi.Scope("scope 2"):
+            assert mpi.comm().name == "scope 2"
+        assert mpi.comm().name == "scope 1"
+    assert mpi.comm().name == "world"
+
+    # using comms returned by register_comm
+    with mpi.Scope(comm_scope_1):
+        assert mpi.comm().name == "scope 1"
+        with mpi.Scope(comm_scope_2):
+            assert mpi.comm().name == "scope 2"
+        assert mpi.comm().name == "scope 1"
+    assert mpi.comm().name == "world"
+
+    # using comms, e.g. by mpi4py.MPI.Comm
+    mock_mpi4py_comm_9999 = Mock_mpi4py_MPI_Comm(9999)
+
+    with mpi.Scope(mock_mpi4py_comm_9999):
+        assert "int.9999" in mpi.list_comms()
+
+    assert mpi.comm().name == "world"
+
+    # When eckit::mpi::unregisterComm is available (from eckit 2.0.0)
+    if hasattr(atlas4py.mpi, "unregister_comm"):
+        atlas4py.mpi.unregister_comm("scope 1")
+        atlas4py.mpi.unregister_comm("scope 2")
+        assert atlas4py.mpi.has_comm("scope 1") == False
+        assert atlas4py.mpi.has_comm("scope 2") == False
+
+
+def test_mpi_barrier():
+    atlas4py.mpi.barrier()  # uses default comm
+    atlas4py.mpi.comm("world").barrier()
+
+
+def test_mpi_comm_split():
+    """Test splitting the world communicator and using the split comm."""
+    mpi = atlas4py.mpi
+    world = mpi.comm("world")
+    color = world.rank % 2
+    split_comm = world.split(color, "split_comm")
+    mpi.set_default_comm("split_comm")
+    # The split_comm should have a subset of ranks
+    assert split_comm.name == "split_comm"
+    assert split_comm.size <= world.size
+    # Each rank in split_comm should have a unique rank
+    assert 0 <= split_comm.rank < split_comm.size
+    # The split_comm should be accessible by name
+    split_comm_by_name = mpi.comm("split_comm")
+    assert split_comm_by_name.name == "split_comm"
+    # Clean up: set default comm back to world if needed
+    mpi.set_default_comm("world")
+    mpi.delete_comm("split_comm")
+    assert not mpi.has_comm("split_comm")

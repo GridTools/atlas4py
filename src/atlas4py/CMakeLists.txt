@@ -84,9 +84,12 @@ endif()
 nanobind_add_module(_atlas4py
     _atlas4py.cpp
     _atlas4py_Config.cpp
+    mpi/_mpi.cpp
 )
 target_link_libraries(_atlas4py PUBLIC atlas)
+target_include_directories(_atlas4py PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(_atlas4py PRIVATE ATLAS4PY_VERSION_STRING=${PROJECT_VERSION_FULL})
+target_compile_definitions(_atlas4py PRIVATE ATLAS4PY_ATLAS_VERSION_INT=${ATLAS4PY_ATLAS_VERSION_INT})
 
 ### Installation
 
