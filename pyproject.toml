@@ -14,7 +14,7 @@ dependencies = [
 
 description = 'Python bindings for Atlas: a ECMWF library for parallel data-structures'
 name = 'atlas4py'
-version = '0.41.1.dev1' # <major>.<minor>.<patch>.dev<dev> : <atlas.major>.<atlas.minor>.<atlas.patch>.dev<atlas4py.dev>
+version = '0.41.1.dev2' # <major>.<minor>.<patch>.dev<dev> : <atlas.major>.<atlas.minor>.<atlas.patch>.dev<atlas4py.dev>
 license = {text = "Apache License 2.0"}
 readme = {file = 'README.md', content-type = 'text/markdown'}
 authors = [{email = 'willem.deconinck@ecmwf.int'}, {name = 'Willem Deconinck'}]
