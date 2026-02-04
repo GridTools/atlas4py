@@ -24,7 +24,11 @@ jobs:
         run: python -m pip install cibuildwheel==3.3.1
 
       - name: Build wheels
-        run: python -m cibuildwheel --output-dir dist
+        run: |
+          if [ "$(uname -s)" = Darwin ]; then
+            export MACOSX_DEPLOYMENT_TARGET="$(sw_vers -productVersion | awk -F. '{print $1 ".0"}')"
+          fi
+          python -m cibuildwheel --output-dir dist
         env:
           # Wheel version settings
           CIBW_BUILD: ${{matrix.python}}-*
