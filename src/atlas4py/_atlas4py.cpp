@@ -55,34 +55,78 @@ void atlasInitialise() {
     atlas::initialise(argc, argv);
 }
 
+py::object toPyObject( eckit::Configuration const& v );
+py::object toPyObject( eckit::Configuration const& v, std::string& key );
 
-py::object toPyObject( eckit::Value const& v ) {
-    if ( v.isBool() )
-        return py::bool_( v.as<bool>() );
-    else if ( v.isNumber() )
-        return py::int_( v.as<long long>() );
-    else if ( v.isDouble() )
-        return py::float_( v.as<double>() );
-    else if ( v.isMap() ) {
-        py::dict ret;
-        auto const& map = v.as<eckit::ValueMap>();
-        for ( auto const& [k, v] : map ) {
-            ret[k.as<std::string>().c_str()] = toPyObject( v );
-        }
-        return ret;
-    }
-    else if ( v.isList() ) {
-        py::list ret;
-        auto const& list = v.as<eckit::ValueList>();
-        for ( auto const& v : list )
-            ret.append( toPyObject( v ) );
-        return ret;
-    }
-    else if ( v.isString() )
-        return py::str( v.as<std::string>() );
-    else
-        throw std::out_of_range( "type of value unsupported (" + v.typeName() + ")" );
+py::object toPyObject(bool v) {
+    return py::bool_(v);
 }
+py::object toPyObject(long v) {
+    return py::int_(v);
+}
+py::object toPyObject(double v) {
+    return py::float_(v);
+}
+py::object toPyObject(std::string const& v) {
+    return py::str(v);
+}
+template <typename T>
+py::object toPyObject( std::vector<T> const& v ) {
+    py::list ret;
+    for ( auto const& val : v ) {
+        ret.append( toPyObject( val ) );
+    }
+    return ret;
+}
+
+py::object toPyObject( eckit::Configuration const& v, std::string const& key ) {
+    if ( v.isSubConfiguration ( key ) ) {
+        return toPyObject( v.getSubConfiguration( key ) );
+    }
+    else if (v.isBoolean( key )) {
+        return toPyObject( v.getBool( key ) );
+    }
+    else if (v.isIntegral( key )) {
+        return toPyObject( v.getLong( key ) );
+    }
+    else if (v.isFloatingPoint( key )) {
+        return toPyObject( v.getDouble( key ) );
+    }
+    else if (v.isString( key )) {
+        return toPyObject( v.getString( key ) );
+    }
+    else if (v.isSubConfigurationList( key )) {
+        std::vector<eckit::LocalConfiguration> subconfigs = v.getSubConfigurations( key );
+        return toPyObject( subconfigs );
+    }
+    else if (v.isIntegralList( key )) {
+        std::vector<long> values = v.getLongVector( key );
+        return toPyObject( values );
+    }
+    else if (v.isFloatingPointList( key )) {
+        std::vector<double> values = v.getDoubleVector( key );
+        return toPyObject( values );
+    }
+    else if (v.isStringList( key )) {
+        std::vector<std::string> values = v.getStringVector( key );
+        return toPyObject( values );
+    }
+    else if (v.isBooleanList( key )) {
+        throw std::out_of_range( "boolean lists not supported for key " + key );
+    }
+    else {
+        throw std::out_of_range( "type of value unsupported for key " + key );
+    }
+}
+
+py::object toPyObject( eckit::Configuration const& v ) {
+    py::dict ret;
+    for ( auto const& key : v.keys()) {
+        ret[ key.c_str() ] = toPyObject( v, key );
+    }
+    return ret;
+}
+
 std::string atlasToPybind( array::DataType const& dt ) {
     switch ( dt.kind() ) {
         case array::DataType::KIND_INT32:
@@ -116,10 +160,14 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
 
 }  // namespace
 
+#define STRINGIFY(s) STRINGIFY_HELPER(s)
+#define STRINGIFY_HELPER(s) #s
+
 PYBIND11_MODULE( _atlas4py, m ) {
     m.def("_initialise", atlasInitialise)
      .def("_finalise",   atlas::finalise);
     m.attr("version") = atlas::Library::instance().version();
+    m.attr("__version__") = STRINGIFY(ATLAS4PY_VERSION_STRING);
 
     py::class_<PointLonLat>( m, "PointLonLat" )
         .def( py::init( []( double lon, double lat ) {
@@ -144,19 +192,19 @@ PYBIND11_MODULE( _atlas4py, m ) {
         } );
 
     py::class_<Projection>( m, "Projection" ).def( "__repr__", []( Projection const& p ) {
-        return "_atlas4py.Projection("_s + py::str( toPyObject( p.spec().get() ) ) + ")"_s;
+        return "_atlas4py.Projection("_s + py::str( toPyObject( p.spec() ) ) + ")"_s;
     } );
     py::class_<Domain>( m, "Domain" )
         .def_property_readonly( "type", &Domain::type )
         .def_property_readonly( "global", &Domain::global )
         .def_property_readonly( "units", &Domain::units )
         .def( "__repr__", []( Domain const& d ) {
-            return "_atlas4py.Domain("_s + ( d ? py::str( toPyObject( d.spec().get() ) ) : "" ) + ")"_s;
+            return "_atlas4py.Domain("_s + ( d ? py::str( toPyObject( d.spec() ) ) : "" ) + ")"_s;
         } );
     py::class_<RectangularDomain, Domain>( m, "RectangularDomain" )
         .def( py::init( []( std::tuple<double, double> xInterval, std::tuple<double, double> yInterval ) {
                   auto [xFrom, xTo] = xInterval;
-                  auto [yFrom, yTo] = xInterval;
+                  auto [yFrom, yTo] = yInterval;
                   return RectangularDomain( { xFrom, xTo }, { yFrom, yTo } );
               } ),
               "x_interval"_a, "y_interval"_a );
@@ -169,13 +217,13 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "projection", &Grid::projection )
         .def_property_readonly( "domain", &Grid::domain )
         .def( "__repr__",
-              []( Grid const& g ) { return "_atlas4py.Grid("_s + py::str( toPyObject( g.spec().get() ) ) + ")"_s; } );
+              []( Grid const& g ) { return "_atlas4py.Grid("_s + py::str( toPyObject( g.spec() ) ) + ")"_s; } );
 
     py::class_<grid::Spacing>( m, "Spacing" )
         .def( "__len__", &grid::Spacing::size )
         .def( "__getitem__", &grid::Spacing::operator[])
         .def( "__repr__", []( grid::Spacing const& spacing ) {
-            return "_atlas4py.Spacing("_s + py::str( toPyObject( spacing.spec().get() ) ) + ")"_s;
+            return "_atlas4py.Spacing("_s + py::str( toPyObject( spacing.spec() ) ) + ")"_s;
         } );
     py::class_<grid::LinearSpacing, grid::Spacing>( m, "LinearSpacing" )
         .def( py::init( []( double start, double stop, long N, bool endpoint ) {
@@ -241,10 +289,10 @@ PYBIND11_MODULE( _atlas4py, m ) {
                   // not be done (see comment in Config::get). We cannot
                   // avoid this right now because otherwise we cannot query
                   // the type of the underlying data.
-                  return toPyObject( config.get().element( key ) );
+                  return toPyObject( config, key );
               } )
         .def( "__repr__", []( util::Config const& config ) {
-            return "_atlas4py.Config("_s + py::str( toPyObject( config.get() ) ) + ")"_s;
+            return "_atlas4py.Config("_s + py::str( toPyObject( config ) ) + ")"_s;
         } );
 
     py::class_<StructuredMeshGenerator>( m, "StructuredMeshGenerator" )
@@ -413,10 +461,10 @@ PYBIND11_MODULE( _atlas4py, m ) {
                   // not be done (see comment in Config::get). We cannot
                   // avoid this right now because otherwise we cannot query
                   // the type of the underlying data.
-                  return toPyObject( metadata.get().element( key ) );
+                  return toPyObject( metadata, key );
               } )
         .def( "__repr__", []( util::Metadata const& metadata ) {
-            return "_atlas4py.Metadata("_s + py::str( toPyObject( metadata.get() ) ) + ")"_s;
+            return "_atlas4py.Metadata("_s + py::str( toPyObject( metadata ) ) + ")"_s;
         } );
 
     py::class_<Field>( m, "Field", py::buffer_protocol() )
