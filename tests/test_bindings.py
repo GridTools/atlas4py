@@ -1,7 +1,7 @@
+import atlas4py
 import numpy as np
 import pytest
 
-import atlas4py
 
 
 # -- Fixtures --
@@ -162,3 +162,156 @@ def test_gmsh_output(structured_mesh):
 
     # Clean up the output file
     os.remove(output_file)
+
+def test_config_set_python_types():
+    from atlas4py import Config
+
+    # Flat types
+    c = Config()
+    c["int"] = 42
+    c["float"] = 3.14
+    c["bool"] = True
+    c["str"] = "hello"
+    c["int_list"] = [1, 2, 3]
+    c["float_list"] = [1.1, 2.2, 3.3]
+    c["str_list"] = ["a", "b", "c"]
+    c["bool_list"] = [True, False, True]
+
+    # Nested dict (mapping protocol)
+    c["nested"] = {"x": 1, "y": 2}
+    # List of dicts (sequence of mappings)
+    c["list_of_dicts"] = [{"a": 1}, {"b": 2}]
+
+    # Retrieve and check
+    assert c["int"] == 42
+    assert c["float"] == pytest.approx(3.14)
+    assert c["bool"] is True
+    assert c["str"] == "hello"
+    assert c["int_list"] == [1, 2, 3]
+    assert c["float_list"] == pytest.approx([1.1, 2.2, 3.3])
+    assert c["str_list"] == ["a", "b", "c"]
+    assert c["bool_list"] == [True, False, True]
+    assert dict(c["nested"]) == {"x": 1, "y": 2}
+    assert [dict(d) for d in c["list_of_dicts"]] == [{"a": 1}, {"b": 2}]
+
+def test_config_contains():
+    config = atlas4py.Config.from_kwargs(option1="value1", option2=42)
+    assert "option1" in config
+    assert "option2" in config
+    assert "option3" not in config
+    # dotted path lookup
+    config["outer.inner"] = 1
+    assert "outer" in config
+    assert "outer.inner" in config
+    assert "outer.missing" not in config
+
+
+def test_config_mapping_protocol():
+    config = atlas4py.Config.from_kwargs(option1="value1", option2=42, option3=3.14)
+    # dict() uses keys() + __getitem__
+    d = dict(config)
+    assert d == {"option1": "value1", "option2": 42, "option3": 3.14}
+    # __iter__
+    assert list(config) == config.keys()
+    # __len__
+    assert len(config) == 3
+
+
+def test_config_from_kwargs():
+    config = atlas4py.Config.from_kwargs(option1="value1", option2=42)
+    config["option3"] = 3.14
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["option3"] == 3.14
+    assert config.keys() == ["option1", "option2", "option3"]
+
+def test_config_from_yaml():
+    yaml_string = """
+option1: value1
+option2: 42
+outer:
+  inner_option1: 3.14
+  inner_option2: true
+"""
+    config = atlas4py.Config.from_yaml(yaml_string)
+    config["outer.inner_option3"] = "added_value"
+
+    assert config.keys() == ["option1", "option2", "outer"]
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["outer.inner_option1"] == 3.14
+    assert config["outer.inner_option2"] is True
+    outer = config["outer"]
+    assert outer["inner_option1"] == 3.14
+    assert outer["inner_option2"] is True
+    assert outer["inner_option3"] == "added_value"
+
+
+def test_config_boolean_list_roundtrip_from_yaml():
+    yaml_string = """
+flags:
+  - true
+  - false
+  - true
+"""
+    config = atlas4py.Config.from_yaml(yaml_string)
+
+    flags = config["flags"]
+    assert flags == [True, False, True]
+    assert all(isinstance(flag, bool) for flag in flags)
+
+
+def test_config_boolean_list_roundtrip_from_json(tmp_path):
+    test_config_json = tmp_path / "test_config.json"
+    test_config_json.write_text(
+        """
+{
+  "flags": [true, false, true]
+}
+"""
+    )
+
+    config = atlas4py.Config.from_file(test_config_json, format="json")
+
+    flags = config["flags"]
+    assert flags == [True, False, True]
+    assert all(isinstance(flag, bool) for flag in flags)
+
+
+def test_config_boolean_list_roundtrip_from_json_string():
+    json_string = """
+{
+  "flags": [true, false, true]
+}
+"""
+    config = atlas4py.Config.from_json(json_string)
+
+    flags = config["flags"]
+    assert flags == [True, False, True]
+    assert all(isinstance(flag, bool) for flag in flags)
+
+
+def test_config_from_file(tmp_path):
+    test_config_yaml = tmp_path / "test_config.yaml"
+    with open(test_config_yaml, "w") as f:
+        f.write(
+            """
+option1: value1
+option2: 42
+outer:
+    inner_option1: 3.14
+    inner_option2: true
+"""
+        )
+    config = atlas4py.Config.from_file(test_config_yaml)
+    config["outer.inner_option3"] = "added_value"
+
+    assert config.keys() == ["option1", "option2", "outer"]
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["outer.inner_option1"] == 3.14
+    assert config["outer.inner_option2"] is True
+    outer = config["outer"]
+    assert outer["inner_option1"] == 3.14
+    assert outer["inner_option2"] is True
+    assert outer["inner_option3"] == "added_value"
