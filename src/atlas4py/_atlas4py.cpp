@@ -196,7 +196,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
     } );
     py::class_<Domain>( m, "Domain" )
         .def_property_readonly( "type", &Domain::type )
-        .def_property_readonly( "global", &Domain::global )
+        .def_property_readonly( "is_global", &Domain::global ) // global is a python keyword, so we can't use it as a property name
         .def_property_readonly( "units", &Domain::units )
         .def( "__repr__", []( Domain const& d ) {
             return "_atlas4py.Domain("_s + ( d ? py::str( toPyObject( d.spec() ) ) : "" ) + ")"_s;
@@ -210,7 +210,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
               "x_interval"_a, "y_interval"_a );
 
     py::class_<Grid>( m, "Grid" )
-        .def( py::init<const std::string&>() )
+        .def( py::init<const std::string&>(), "name"_a )
         .def_property_readonly( "name", &Grid::name )
         .def_property_readonly( "uid", &Grid::uid )
         .def_property_readonly( "size", &Grid::size )
@@ -234,10 +234,14 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def( py::init( []( long N ) { return grid::GaussianSpacing{ N }; } ), "N"_a );
 
     py::class_<StructuredGrid, Grid>( m, "StructuredGrid" )
+        .def( py::init( []( const Grid& grid, Domain const& d ) {
+                  return StructuredGrid{ grid, d };
+              } ),
+              "grid"_a, "domain"_a = Domain() )
         .def( py::init( []( std::string const& s, Domain const& d ) {
                   return StructuredGrid{ s, d };
               } ),
-              "gridname"_a, "domain"_a = Domain() )
+              "name"_a, "domain"_a = Domain() )
         .def( py::init( []( grid::LinearSpacing xSpacing, grid::Spacing ySpacing ) {
                   return StructuredGrid{ xSpacing, ySpacing };
               } ),
@@ -249,6 +253,9 @@ PYBIND11_MODULE( _atlas4py, m ) {
                 return StructuredGrid{ xSpacings, ySpacing, Projection(), d };
             } ),
             "x_spacings"_a, "y_spacing"_a, "domain"_a = Domain() )
+        .def( "__enter__", []( StructuredGrid& self ) { return self; } )
+        .def( "__exit__", []( StructuredGrid& self, py::object exc_type, py::object exc_val, py::object exc_tb ) { self.reset( nullptr ); } )
+        .def( "__bool__", []( StructuredGrid const& self ) { return self.valid(); } )
         .def_property_readonly( "valid", &StructuredGrid::valid )
         .def_property_readonly( "ny", &StructuredGrid::ny )
         .def_property_readonly( "nx", py::overload_cast<>( &StructuredGrid::nx, py::const_ ) )
@@ -473,6 +480,7 @@ PYBIND11_MODULE( _atlas4py, m ) {
         .def_property_readonly( "shape", py::overload_cast<>( &Field::shape, py::const_ ) )
         .def_property_readonly( "size", &Field::size )
         .def_property_readonly( "rank", &Field::rank )
+        .def_property_readonly( "dtype", []( Field& f ) { return atlasToPybind( f.datatype() ); } )
         .def_property_readonly( "datatype", []( Field& f ) { return atlasToPybind( f.datatype() ); } )
         .def_property( "metadata", py::overload_cast<>( &Field::metadata, py::const_ ),
                        py::overload_cast<>( &Field::metadata ) )
@@ -506,13 +514,9 @@ PYBIND11_MODULE( _atlas4py, m ) {
     py::class_<output::Gmsh>( m, "Gmsh" )
         .def( py::init( []( std::string const& path ) { return output::Gmsh{ path }; } ), "path"_a )
         .def( "__enter__", []( output::Gmsh& gmsh ) { return gmsh; } )
-        .def( "__exit__", []( output::Gmsh& gmsh, py::object exc_type, py::object exc_val,
-                              py::object exc_tb ) { gmsh.reset( nullptr ); } )
-        .def(
-            "write", []( output::Gmsh& gmsh, Mesh const& mesh ) { gmsh.write( mesh ); }, "mesh"_a )
-        .def(
-            "write", []( output::Gmsh& gmsh, Field const& field ) { gmsh.write( field ); }, "field"_a )
-        .def(
-            "write", []( output::Gmsh& gmsh, Field const& field, FunctionSpace const& fs ) { gmsh.write( field, fs ); },
-            "field"_a, "functionspace"_a );
+        .def( "__exit__", []( output::Gmsh& self, py::object exc_type, py::object exc_val, py::object exc_tb ) { self.reset( nullptr ); } )
+        .def( "write", []( output::Gmsh& gmsh, Mesh const& mesh ) { gmsh.write( mesh ); }, "mesh"_a )
+        .def( "write", []( output::Gmsh& gmsh, Field const& field ) { gmsh.write( field ); }, "field"_a )
+        .def( "write", []( output::Gmsh& gmsh, Field const& field, FunctionSpace const& fs ) { gmsh.write( field, fs ); },
+              "field"_a, "functionspace"_a );
 }
