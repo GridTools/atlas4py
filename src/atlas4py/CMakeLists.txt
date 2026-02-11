@@ -81,7 +81,10 @@ endif()
 
 ### Python bindings module atlas4py
 
-nanobind_add_module(_atlas4py _atlas4py.cpp)
+nanobind_add_module(_atlas4py
+    _atlas4py.cpp
+    _atlas4py_Config.cpp
+)
 target_link_libraries(_atlas4py PUBLIC atlas)
 target_compile_definitions(_atlas4py PRIVATE ATLAS4PY_VERSION_STRING=${PROJECT_VERSION_FULL})
 

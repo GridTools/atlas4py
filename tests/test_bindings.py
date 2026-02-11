@@ -1,7 +1,7 @@
+import atlas4py
 import numpy as np
 import pytest
 
-import atlas4py
 
 
 # -- Fixtures --
@@ -149,3 +149,58 @@ def test_gmsh_output(structured_mesh):
 
     # Clean up the output file
     os.remove(output_file)
+
+def test_config_from_kwargs():
+    config = atlas4py.Config.from_kwargs(option1="value1", option2=42)
+    config["option3"] = 3.14
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["option3"] == 3.14
+    assert config.keys == ["option1", "option2", "option3"]
+
+def test_config_from_yaml():
+    yaml_string = """
+option1: value1
+option2: 42
+outer:
+  inner_option1: 3.14
+  inner_option2: true
+"""
+    config = atlas4py.Config.from_yaml(yaml_string)
+    config["outer.inner_option3"] = "added_value"
+
+    assert config.keys == ["option1", "option2", "outer"]
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["outer.inner_option1"] == 3.14
+    assert config["outer.inner_option2"] == True
+    outer = config["outer"]
+    assert outer["inner_option1"] == 3.14
+    assert outer["inner_option2"] == True
+    assert outer["inner_option3"] == "added_value"
+
+
+def test_config_from_file(tmp_path):
+    test_config_yaml = tmp_path / "test_config.yaml"
+    with open(test_config_yaml, "w") as f:
+        f.write(
+            """
+option1: value1
+option2: 42
+outer:
+    inner_option1: 3.14
+    inner_option2: true
+"""
+        )
+    config = atlas4py.Config.from_file(test_config_yaml)
+    config["outer.inner_option3"] = "added_value"
+
+    assert config.keys == ["option1", "option2", "outer"]
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["outer.inner_option1"] == 3.14
+    assert config["outer.inner_option2"] == True
+    outer = config["outer"]
+    assert outer["inner_option1"] == 3.14
+    assert outer["inner_option2"] == True
+    assert outer["inner_option3"] == "added_value"
