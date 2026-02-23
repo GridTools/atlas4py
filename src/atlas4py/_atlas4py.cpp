@@ -166,7 +166,6 @@ array::DataType pybindToAtlas( py::dtype const& dtype ) {
 PYBIND11_MODULE( _atlas4py, m ) {
     m.def("_initialise", atlasInitialise)
      .def("_finalise",   atlas::finalise);
-    m.attr("version") = atlas::Library::instance().version();
     m.attr("__version__") = STRINGIFY(ATLAS4PY_VERSION_STRING);
 
     py::class_<PointLonLat>( m, "PointLonLat" )
