@@ -147,6 +147,8 @@ void atlasInitialise() {
     }
 
     atlas::initialise(argc, argv);
+    // Warning: Don't delete argv, because this is being referenced within
+    // the atlas library and deleting it may cause issues.
 }
 
 nb::object toPyObject( eckit::Configuration const& v );
