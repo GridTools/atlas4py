@@ -3,7 +3,7 @@ build-backend = 'scikit_build_core.build'
 requires = [
     'scikit-build-core>=0.10.7',
     'wheel>=0.45.1',
-    'pybind11>=2.11.1',
+    'nanobind>=2.11.0',
 ]
 
 [project]
