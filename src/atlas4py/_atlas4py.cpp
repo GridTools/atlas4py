@@ -40,6 +40,8 @@ namespace pluto {
 #include "eckit/value/Value.h"
 #include "eckit/config/Configuration.h"
 
+#include "_atlas4py_Config.hpp"
+
 namespace nb = ::nanobind;
 
 using namespace atlas;
@@ -151,77 +153,6 @@ void atlasInitialise() {
     // the atlas library and deleting it may cause issues.
 }
 
-nb::object toPyObject( eckit::Configuration const& v );
-nb::object toPyObject( eckit::Configuration const& v, std::string const& key );
-
-nb::object toPyObject(bool v) {
-    return nb::bool_(v);
-}
-nb::object toPyObject(long v) {
-    return nb::int_(v);
-}
-nb::object toPyObject(double v) {
-    return nb::float_(v);
-}
-nb::object toPyObject(std::string const& v) {
-    return nb::str(v.c_str());
-}
-template <typename T>
-nb::object toPyObject( std::vector<T> const& v ) {
-    nb::list ret;
-    for ( auto const& val : v ) {
-        ret.append( toPyObject( val ) );
-    }
-    return ret;
-}
-
-nb::object toPyObject( eckit::Configuration const& v, std::string const& key ) {
-    if ( v.isSubConfiguration ( key ) ) {
-        return toPyObject( v.getSubConfiguration( key ) );
-    }
-    else if (v.isBoolean( key )) {
-        return toPyObject( v.getBool( key ) );
-    }
-    else if (v.isIntegral( key )) {
-        return toPyObject( v.getLong( key ) );
-    }
-    else if (v.isFloatingPoint( key )) {
-        return toPyObject( v.getDouble( key ) );
-    }
-    else if (v.isString( key )) {
-        return toPyObject( v.getString( key ) );
-    }
-    else if (v.isSubConfigurationList( key )) {
-        std::vector<eckit::LocalConfiguration> subconfigs = v.getSubConfigurations( key );
-        return toPyObject( subconfigs );
-    }
-    else if (v.isIntegralList( key )) {
-        std::vector<long> values = v.getLongVector( key );
-        return toPyObject( values );
-    }
-    else if (v.isFloatingPointList( key )) {
-        std::vector<double> values = v.getDoubleVector( key );
-        return toPyObject( values );
-    }
-    else if (v.isStringList( key )) {
-        std::vector<std::string> values = v.getStringVector( key );
-        return toPyObject( values );
-    }
-    else if (v.isBooleanList( key )) {
-        throw std::out_of_range( "boolean lists not supported for key " + key );
-    }
-    else {
-        throw std::out_of_range( "type of value unsupported for key " + key );
-    }
-}
-
-nb::object toPyObject( eckit::Configuration const& v ) {
-    nb::dict ret;
-    for ( auto const& key : v.keys()) {
-        ret[ key.c_str() ] = toPyObject( v, key );
-    }
-    return ret;
-}
 
 int get_nb_device_type( const void* ptr ) {
     if (pluto::is_pinned(ptr)) {
@@ -294,6 +225,8 @@ NB_MODULE( _atlas4py, m ) {
      .def("_finalise",   atlas::finalise);
     m.attr("__version__") = STRINGIFY(ATLAS4PY_VERSION_STRING);
 
+    atlas4py::bind_Config( m );
+
     nb::class_<PointLonLat>( m, "PointLonLat" )
         .def( nb::init<double,double>(), "lon"_a, "lat"_a )
         .def_prop_ro( "lon", nb::overload_cast<>( &PointLonLat::lon, nb::const_ ) )
@@ -311,7 +244,7 @@ NB_MODULE( _atlas4py, m ) {
 
     nb::class_<Projection>( m, "Projection" )
         .def( "__repr__", []( Projection const& p ) {
-        return "_atlas4py.Projection("_s + nb::str( toPyObject( p.spec() ) ) + ")"_s;
+        return "_atlas4py.Projection("_s + nb::str( atlas4py::make_object( p.spec() ) ) + ")"_s;
         } );
 
     nb::class_<Domain>( m, "Domain" )
@@ -320,7 +253,7 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "units", &Domain::units )
         .def( "__repr__", []( Domain const& d ) {
             if (d) {
-                return nb::str("_atlas4py.Domain("_s + nb::str( toPyObject( d.spec() ) ) + ")"_s);
+                return nb::str("_atlas4py.Domain("_s + nb::str( atlas4py::make_object( d.spec() ) ) + ")"_s);
             }
             return nb::str("_atlas4py.Domain()"_s);
         } );
@@ -335,13 +268,13 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "projection", &Grid::projection )
         .def_prop_ro( "domain", &Grid::domain )
         .def( "__repr__",
-              []( Grid const& g ) { return "_atlas4py.Grid("_s + nb::str( toPyObject( g.spec() ) ) + ")"_s; } );
+              []( Grid const& g ) { return "_atlas4py.Grid("_s + nb::str( atlas4py::make_object( g.spec() ) ) + ")"_s; } );
 
     nb::class_<grid::Spacing>( m, "Spacing" )
         .def( "__len__", &grid::Spacing::size )
         .def( "__getitem__", &grid::Spacing::operator[])
         .def( "__repr__", []( grid::Spacing const& spacing ) {
-            return "_atlas4py.Spacing("_s + nb::str( toPyObject( spacing.spec() ) ) + ")"_s;
+            return "_atlas4py.Spacing("_s + nb::str( atlas4py::make_object( spacing.spec() ) ) + ")"_s;
         } );
     nb::class_<grid::LinearSpacing, grid::Spacing>( m, "LinearSpacing" )
         .def( nb::init<double,double,long,bool>(), "start"_a, "stop"_a, "N"_a, "endpoint_included"_a = true );
@@ -373,41 +306,6 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "reduced", &StructuredGrid::reduced )
         .def_prop_ro( "regular", &StructuredGrid::regular )
         .def_prop_ro( "periodic", &StructuredGrid::periodic );
-
-    nb::class_<eckit::Configuration>( m, "eckit.Configuration" );
-
-    nb::class_<eckit::LocalConfiguration, eckit::Configuration>( m, "eckit.LocalConfiguration" );
-
-    // TODO This is a duplicate of metadata below (because same base class)
-    nb::class_<util::Config, eckit::LocalConfiguration>( m, "Config" )
-        .def( nb::init() )
-        .def( "__setitem__",
-              []( util::Config& config, std::string const& key, nb::object value ) {
-                  if ( nb::isinstance<nb::bool_>( value ) )
-                      config.set( key, nb::cast<bool>( value ) );
-                  else if ( nb::isinstance<nb::int_>( value ) )
-                      config.set( key, nb::cast<long long>( value ) );
-                  else if ( nb::isinstance<nb::float_>( value ) )
-                      config.set( key, nb::cast<double>( value ) );
-                  else if ( nb::isinstance<nb::str>( value ) )
-                      config.set( key, nb::cast<std::string>( value ) );
-                  else
-                      throw std::out_of_range( "type of value unsupported" );
-              } )
-        .def( "__getitem__",
-              []( util::Config& config, std::string const& key ) -> nb::object {
-                  if ( !config.has( key ) )
-                      throw std::out_of_range( "key <" + key + "> could not be found" );
-
-                  // TODO: We have to query metadata.get() even though this should
-                  // not be done (see comment in Config::get). We cannot
-                  // avoid this right now because otherwise we cannot query
-                  // the type of the underlying data.
-                  return toPyObject( config, key );
-              } )
-        .def( "__repr__", []( util::Config const& config ) {
-            return "_atlas4py.Config("_s + nb::str( toPyObject( config ) ) + ")"_s;
-        } );
 
     nb::class_<Field>( m, "Field" )
         .def_prop_ro( "name", &Field::name )
@@ -569,34 +467,9 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "cells", &functionspace::CellColumns::cells )
         .def_prop_ro( "valid", &functionspace::CellColumns::valid );
 
-    nb::class_<util::Metadata>( m, "Metadata" )
-        .def_prop_ro( "keys", &util::Metadata::keys )
-        .def( "__setitem__",
-              []( util::Metadata& metadata, std::string const& key, nb::object value ) {
-                  if ( nb::isinstance<nb::bool_>( value ) )
-                      metadata.set( key, nb::cast<bool>(value) );
-                  else if ( nb::isinstance<nb::int_>( value ) )
-                      metadata.set( key, nb::cast<long long>(value) );
-                  else if ( nb::isinstance<nb::float_>( value ) )
-                      metadata.set( key, nb::cast<double>(value) );
-                  else if ( nb::isinstance<nb::str>( value ) )
-                      metadata.set( key, nb::cast<std::string>(value) );
-                  else
-                      throw std::out_of_range( "type of value unsupported" );
-              } )
-        .def( "__getitem__",
-              []( util::Metadata& metadata, std::string const& key ) -> nb::object {
-                  if ( !metadata.has( key ) )
-                      throw std::out_of_range( "key <" + key + "> could not be found" );
-
-                  // TODO: We have to query metadata.get() even though this should
-                  // not be done (see comment in Config::get). We cannot
-                  // avoid this right now because otherwise we cannot query
-                  // the type of the underlying data.
-                  return toPyObject( metadata, key );
-              } )
+    nb::class_<util::Metadata, eckit::LocalConfiguration>( m, "Metadata" )
         .def( "__repr__", []( util::Metadata const& metadata ) {
-            return "_atlas4py.Metadata("_s + nb::str( toPyObject( metadata ) ) + ")"_s;
+            return "_atlas4py.Metadata("_s + nb::str( atlas4py::make_object( metadata ) ) + ")"_s;
         } );
 
     nb::class_<mesh::Nodes::Topology> topology( m, "Topology" );
