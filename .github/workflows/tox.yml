@@ -1,10 +1,19 @@
 name: Tox tests
 
 on:
+
+  # Trigger the workflow on all pushes, except on tag creation
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches:
+    - '**'
+    tags-ignore:
+    - '**'
+
+  # Trigger the workflow on all pull requests
+  pull_request: ~
+
+  # Allow workflow to be dispatched on demand
+  workflow_dispatch: ~
 
 jobs:
   build:
