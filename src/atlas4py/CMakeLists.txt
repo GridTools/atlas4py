@@ -81,7 +81,3 @@ target_compile_definitions(_atlas4py PRIVATE ATLAS4PY_VERSION_STRING=${PROJECT_V
 ### Installation
 
 install(TARGETS _atlas4py DESTINATION .)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/
-    DESTINATION .
-    FILES_MATCHING PATTERN "*.py"
-)

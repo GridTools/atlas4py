@@ -53,8 +53,16 @@ cmake.args = [
 ]
 wheel.expand-macos-universal-tags = true
 wheel.install-dir = "atlas4py"
-wheel.packages = []
-wheel.license-files = []
+wheel.packages = ["src/atlas4py"]
+wheel.exclude = ["**/CMakeLists.txt", "**/*.cmake", "**/*.cpp", "**/*.hpp"]
+wheel.license-files = ["LICENSE"]
+
+editable.rebuild = true       # automatically recompile/install if needed
+editable.verbose = true       # verbose output
+
+[[tool.scikit-build.overrides]]
+if.state = "editable"
+cmake.build-type = "Debug"
 
 [tool.black]
 line-length = 99
