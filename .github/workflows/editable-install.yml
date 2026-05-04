@@ -21,30 +21,30 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.11", "3.13"]
-        build-isolation: [false, true]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-build-env
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-env
         with:
           python-version: ${{ matrix.python-version }}
           # Pre-install build backend only when we will skip pip's build isolation.
-          install-build-backend: ${{ matrix.build-isolation == false }}
+          install-build-backend: 'true'
 
       - name: Editable install
         run: |
-          if [ "${{ matrix.build-isolation }}" = "true" ]; then
-            python -m pip install -v -e .
-          else
+            export CMAKE_ARGS="-DATLAS_ENABLE_OMP=ON"
             python -m pip install --no-build-isolation -v -e .
-          fi
 
       # ----- Verification --------------------------------------------------
-      - uses: ./.github/actions/verify-atlas4py
+      - name: Verify atlas4py installation
+        uses: ./.github/actions/verify-atlas4py
 
       # ----- Editable-rebuild specific checks ------------------------------
-      - uses: ./.github/actions/verify-atlas4py-rebuild
+      - name: Verify atlas4py editable rebuild
+        uses: ./.github/actions/verify-atlas4py-rebuild
 
   # ---------------------------------------------------------------------------
   # Editable install using externally built eckit + atlas
@@ -92,21 +92,47 @@ jobs:
         run: |
           mkdir -p deps/source
           pushd deps
+
+          echo "::group::Clone ecbuild ${ATLAS4PY_ECBUILD_VERSION}"
           git clone --branch ${ATLAS4PY_ECBUILD_VERSION} --single-branch https://github.com/ecmwf/ecbuild source/ecbuild
+          echo "::endgroup::"
+
+          echo "::group::Clone eckit ${ATLAS4PY_ECKIT_VERSION}"
           git clone --branch ${ATLAS4PY_ECKIT_VERSION}   --single-branch https://github.com/ecmwf/eckit   source/eckit
+          echo "::endgroup::"
+
+          echo "::group::Clone atlas ${ATLAS4PY_ATLAS_VERSION}"
           git clone --branch ${ATLAS4PY_ATLAS_VERSION}   --single-branch https://github.com/ecmwf/atlas   source/atlas
+          echo "::endgroup::"
 
           export CMAKE_PREFIX_PATH=$PWD/install
 
+          echo "::group::Configure eckit"
           cmake -S source/eckit -B build/eckit -G Ninja \
             -DENABLE_TESTS=OFF -DENABLE_FORTRAN=OFF -DCMAKE_BUILD_TYPE=Release
-          cmake --build   build/eckit --parallel
-          cmake --install build/eckit --prefix install/eckit
+          echo "::endgroup::"
 
+          echo "::group::Build eckit"
+          cmake --build   build/eckit --parallel
+          echo "::endgroup::"
+
+          echo "::group::Install eckit"
+          cmake --install build/eckit --prefix install/eckit
+          echo "::endgroup::"
+
+          echo "::group::Configure atlas"
           cmake -S source/atlas -B build/atlas -G Ninja \
             -DENABLE_TESTS=OFF -DENABLE_FORTRAN=OFF -DCMAKE_BUILD_TYPE=Release
+          echo "::endgroup::"
+
+          echo "::group::Build atlas"
           cmake --build   build/atlas --parallel
+          echo "::endgroup::"
+
+          echo "::group::Install atlas"
           cmake --install build/atlas --prefix install/atlas
+          echo "::endgroup::"
+
           popd
 
       - name: Editable install against external deps
@@ -115,7 +141,8 @@ jobs:
           python -m pip install --no-build-isolation -v -e .
 
       # ----- Verification --------------------------------------------------
-      - uses: ./.github/actions/verify-atlas4py
+      - name: Verify atlas4py installation
+        uses: ./.github/actions/verify-atlas4py
 
       # ----- External-deps specific check ----------------------------------
       - name: Verify atlas4py was linked against the external atlas
@@ -140,4 +167,5 @@ jobs:
           PY
 
       # ----- Editable-rebuild specific checks ------------------------------
-      - uses: ./.github/actions/verify-atlas4py-rebuild
+      - name: Verify atlas4py editable rebuild
+        uses: ./.github/actions/verify-atlas4py-rebuild
