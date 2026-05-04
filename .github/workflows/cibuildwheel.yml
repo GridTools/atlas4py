@@ -14,9 +14,16 @@ on:
   # Allow workflow to be dispatched on demand
   workflow_dispatch: ~
 jobs:
+  pre-check:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Condition met, proceeding with workflow."
+
   build_wheels:
     name: Build wheels on ${{ matrix.os }} for ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
+    needs: pre-check # This job won't start if 'pre-check' is skipped
     strategy:
       matrix:
         os:
@@ -56,6 +63,7 @@ jobs:
   build_sdist:
     name: Build sdist
     runs-on: ubuntu-latest
+    needs: pre-check # This job won't start if 'pre-check' is skipped
     steps:
       - name: Set up Python
         uses: actions/setup-python@v6

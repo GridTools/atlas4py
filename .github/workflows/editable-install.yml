@@ -14,6 +14,7 @@ jobs:
   # Editable install using the bundled (FetchContent) eckit + atlas dependencies
   # ---------------------------------------------------------------------------
   editable-internal:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     name: Editable (bundled) - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -50,6 +51,7 @@ jobs:
   # Editable install using externally built eckit + atlas
   # ---------------------------------------------------------------------------
   editable-external:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     name: Editable (external) - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
