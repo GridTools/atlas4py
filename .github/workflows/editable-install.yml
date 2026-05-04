@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup build environment
         uses: ./.github/actions/setup-build-env
@@ -60,7 +60,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup build environment
         uses: ./.github/actions/setup-build-env
@@ -85,7 +85,7 @@ jobs:
 
       - name: Cache external eckit + atlas install
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: deps/install
           key: ext-deps-atlas-${{ env.ATLAS4PY_ATLAS_VERSION }}-eckit-${{ env.ATLAS4PY_ECKIT_VERSION }}-ecbuild-${{ env.ATLAS4PY_ECBUILD_VERSION }}-${{ runner.os }}[${{ steps.build-env.outputs.sys-deps-cache-key }}]
