@@ -14,13 +14,13 @@ jobs:
   # Editable install using the bundled (FetchContent) eckit + atlas dependencies
   # ---------------------------------------------------------------------------
   editable-internal:
-    name: Editable (bundled) - ${{ matrix.os }} py${{ matrix.python-version }}
+    name: Editable (bundled) - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.11", "3.13"]
+        python-version: ["3.13"]
 
     steps:
       - name: Checkout repository
@@ -50,7 +50,7 @@ jobs:
   # Editable install using externally built eckit + atlas
   # ---------------------------------------------------------------------------
   editable-external:
-    name: Editable (external) - ${{ matrix.os }} py${{ matrix.python-version }}
+    name: Editable (external) - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -59,9 +59,11 @@ jobs:
         python-version: ["3.13"]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-build-env
+      - name: Setup build environment
+        uses: ./.github/actions/setup-build-env
         with:
           python-version: ${{ matrix.python-version }}
           install-build-backend: 'true'
@@ -113,7 +115,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Build eckit"
-          cmake --build   build/eckit --parallel
+          cmake --build build/eckit --parallel
           echo "::endgroup::"
 
           echo "::group::Install eckit"
@@ -126,7 +128,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Build atlas"
-          cmake --build   build/atlas --parallel
+          cmake --build build/atlas --parallel
           echo "::endgroup::"
 
           echo "::group::Install atlas"
