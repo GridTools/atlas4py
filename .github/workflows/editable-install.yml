@@ -148,10 +148,9 @@ jobs:
       - name: Verify atlas4py was linked against the external atlas
         run: |
           python - <<'PY'
-          import pathlib, platform, subprocess, atlas4py
-          mod_dir = pathlib.Path(atlas4py.__file__).resolve().parent
-          ext = next(mod_dir.glob("_atlas4py*.so"), None)
-          assert ext is not None, f"compiled extension not found in {mod_dir}"
+          import pathlib, platform, subprocess, atlas4py._atlas4py as _ext
+          ext = pathlib.Path(_ext.__file__).resolve()
+          print(ext)
           if platform.system() == "Darwin":
               # `otool -l` dumps load commands, including LC_RPATH entries which
               # carry the absolute external install path baked in at link time.
