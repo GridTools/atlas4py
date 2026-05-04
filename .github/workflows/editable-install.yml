@@ -1,0 +1,143 @@
+name: Editable install tests
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+  pull_request: ~
+  workflow_dispatch: ~
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Editable install using the bundled (FetchContent) eckit + atlas dependencies
+  # ---------------------------------------------------------------------------
+  editable-internal:
+    name: Editable (bundled) - ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.11", "3.13"]
+        build-isolation: [false, true]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build-env
+        with:
+          python-version: ${{ matrix.python-version }}
+          # Pre-install build backend only when we will skip pip's build isolation.
+          install-build-backend: ${{ matrix.build-isolation == false }}
+
+      - name: Editable install
+        run: |
+          if [ "${{ matrix.build-isolation }}" = "true" ]; then
+            python -m pip install -v -e .
+          else
+            python -m pip install --no-build-isolation -v -e .
+          fi
+
+      # ----- Verification --------------------------------------------------
+      - uses: ./.github/actions/verify-atlas4py
+
+      # ----- Editable-rebuild specific checks ------------------------------
+      - uses: ./.github/actions/verify-atlas4py-rebuild
+
+  # ---------------------------------------------------------------------------
+  # Editable install using externally built eckit + atlas
+  # ---------------------------------------------------------------------------
+  editable-external:
+    name: Editable (external) - ${{ matrix.os }} py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build-env
+        with:
+          python-version: ${{ matrix.python-version }}
+          install-build-backend: 'true'
+
+      - name: Extract pinned dependency versions from pyproject.toml
+        id: versions
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          import pathlib, re, tomllib
+          cfg = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
+          args = cfg["tool"]["scikit-build"]["cmake"]["args"]
+          pat = re.compile(r"^-D(ATLAS4PY_[A-Za-z0-9_]+)=(.*)$")
+          for a in args:
+              m = pat.match(a)
+              if m:
+                  print(f"{m.group(1)}={m.group(2)}")
+          PY
+
+      - name: Cache external eckit + atlas install
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: deps/install
+          key: ext-deps-${{ runner.os }}-ecbuild-${{ env.ATLAS4PY_ECBUILD_VERSION }}-eckit-${{ env.ATLAS4PY_ECKIT_VERSION }}-atlas-${{ env.ATLAS4PY_ATLAS_VERSION }}
+
+      - name: Build external eckit + atlas
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p deps/source
+          pushd deps
+          git clone --branch ${ATLAS4PY_ECBUILD_VERSION} --single-branch https://github.com/ecmwf/ecbuild source/ecbuild
+          git clone --branch ${ATLAS4PY_ECKIT_VERSION}   --single-branch https://github.com/ecmwf/eckit   source/eckit
+          git clone --branch ${ATLAS4PY_ATLAS_VERSION}   --single-branch https://github.com/ecmwf/atlas   source/atlas
+
+          export CMAKE_PREFIX_PATH=$PWD/install
+
+          cmake -S source/eckit -B build/eckit -G Ninja \
+            -DENABLE_TESTS=OFF -DENABLE_FORTRAN=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build   build/eckit --parallel
+          cmake --install build/eckit --prefix install/eckit
+
+          cmake -S source/atlas -B build/atlas -G Ninja \
+            -DENABLE_TESTS=OFF -DENABLE_FORTRAN=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build   build/atlas --parallel
+          cmake --install build/atlas --prefix install/atlas
+          popd
+
+      - name: Editable install against external deps
+        run: |
+          export CMAKE_PREFIX_PATH=$PWD/deps/install
+          python -m pip install --no-build-isolation -v -e .
+
+      # ----- Verification --------------------------------------------------
+      - uses: ./.github/actions/verify-atlas4py
+
+      # ----- External-deps specific check ----------------------------------
+      - name: Verify atlas4py was linked against the external atlas
+        run: |
+          python - <<'PY'
+          import pathlib, platform, subprocess, atlas4py
+          mod_dir = pathlib.Path(atlas4py.__file__).resolve().parent
+          ext = next(mod_dir.glob("_atlas4py*.so"), None)
+          assert ext is not None, f"compiled extension not found in {mod_dir}"
+          if platform.system() == "Darwin":
+              # `otool -l` dumps load commands, including LC_RPATH entries which
+              # carry the absolute external install path baked in at link time.
+              out = subprocess.check_output(["otool", "-l", str(ext)]).decode()
+          else:
+              out = subprocess.check_output(["ldd", str(ext)]).decode()
+          print(out)
+          assert "libatlas" in out, "libatlas not linked"
+          # Must resolve to our externally-installed atlas
+          external = str(pathlib.Path("deps/install/atlas").resolve())
+          assert external in out, f"expected external atlas path {external} in linker output"
+          print("External atlas linkage OK")
+          PY
+
+      # ----- Editable-rebuild specific checks ------------------------------
+      - uses: ./.github/actions/verify-atlas4py-rebuild

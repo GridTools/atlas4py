@@ -1,0 +1,39 @@
+name: Verify atlas4py editable rebuild
+description: >
+  Verify that an editable install of atlas4py picks up edits to both Python
+  and C++ sources (i.e. that scikit-build-core's editable.rebuild works).
+
+runs:
+  using: composite
+  steps:
+    - name: Verify editable Python edits are picked up
+      shell: bash
+      run: |
+        python - <<'PY'
+        import pathlib
+        path = pathlib.Path("src/atlas4py/__init__.py")
+        marker = "\n__CI_EDITABLE_MARKER__ = 'changed'\n"
+        txt = path.read_text(encoding="utf-8")
+        if marker not in txt:
+            path.write_text(txt + marker, encoding="utf-8")
+        import atlas4py
+        assert getattr(atlas4py, "__CI_EDITABLE_MARKER__", None) == "changed"
+        print("Editable Python change reflected OK")
+        PY
+
+    - name: Verify editable C++ edits trigger a rebuild
+      shell: bash
+      run: |
+        sed -i.bak 's/ATLAS4PY_VERSION_STRING/__CI_EDITABLE_MARKER__/g' \
+          src/atlas4py/_atlas4py.cpp && rm -f src/atlas4py/_atlas4py.cpp.bak
+        python - <<'PY'
+        import atlas4py
+        assert atlas4py.__version__ == "__CI_EDITABLE_MARKER__", atlas4py.__version__
+        print("Editable C++ change reflected OK")
+        PY
+
+    - name: Restore edited sources
+      if: always()
+      shell: bash
+      run: |
+        git checkout -- src/atlas4py/__init__.py src/atlas4py/_atlas4py.cpp || true

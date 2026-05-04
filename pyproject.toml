@@ -2,14 +2,12 @@
 build-backend = 'scikit_build_core.build'
 requires = [
     'scikit-build-core>=0.10.7',
-    'wheel>=0.45.1',
     'pybind11>=2.11.1',
 ]
 
 [project]
 dependencies = [
-  'numpy>=1.23',
-  'packaging>=20.0'
+  'numpy>=1.23'
 ]
 
 description = 'Python bindings for Atlas: a ECMWF library for parallel data-structures'
@@ -37,7 +35,7 @@ classifiers = [
 repository = 'https://github.com/GridTools/atlas4py'
 
 [project.optional-dependencies]
-test = ['pytest', 'pytest-cache']
+test = ['pytest']
 
 [tool.scikit-build]
 minimum-version = '0.5'
