@@ -71,7 +71,7 @@ std::string to_python_name( DataType const& dt ) {
         case DataType::KIND_UINT64:
             return "uint64";
         default:
-            return "";
+            throw nb::type_error("Unexpected DataType");
     }
 }
 
@@ -88,7 +88,7 @@ std::string to_python_name( DataType const& dt ) {
         case DataType::KIND_UINT64:
             return nb::dtype<uint64_t>();
         default:
-            return nb::dlpack::dtype();
+            throw nb::type_error("Unexpected DataType");
     }
 }
 
@@ -279,8 +279,7 @@ auto make_ndarray(atlas::array::Array& array, MemorySpace memory_space) {
         strides.data(), // strides
         atlas4py::dtype::to_nb_dtype( array.datatype()), // dtype
         get_nb_device_type(data_ptr), // device_type
-        0, // device_id
-        'C' // order
+        0 // device_id
     );
 }
 
@@ -425,6 +424,12 @@ NB_MODULE( _atlas4py, m ) {
             }, nb::rv_policy::reference_internal)
         // Numpy array interface, see https://numpy.org/doc/stable/reference/arrays.interface.html
         .def("__array__", [](Field &self, nb::handle dtype, nb::handle copy) {
+            if (!dtype.is_none() && atlas4py::dtype::from_python_object( nb::borrow<nb::object>( dtype ) ) != self.datatype()) {
+                throw std::runtime_error("__array__ dtype conversion is not supported");
+            }
+            if (!copy.is_none() && nb::cast<bool>( copy )) {
+                throw std::runtime_error("__array__ copy is not supported");
+            }
             return make_ndarray<nb::numpy>(self, MemorySpace::host);
             }, "dtype"_a = nb::none(), "copy"_a = nb::none(),
             nb::rv_policy::reference_internal)
