@@ -1,27 +1,39 @@
 name: Tox tests
 
 on:
+
+  # Trigger the workflow on all pushes, except on tag creation
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches:
+    - '**'
+    tags-ignore:
+    - '**'
+
+  # Trigger the workflow on all pull requests
+  pull_request: ~
+
+  # Allow workflow to be dispatched on demand
+  workflow_dispatch: ~
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # since we trigger on all branches, we get two events for a pull request on the same repo
+    #  so skip PR runs in that case
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install python dependencies
       run: |
-        python -m pip install --upgrade pip setuptools wheel
+        python -m pip install --upgrade pip
     - name: Test with tox
       run: |
         pyversion_no_dot="${{ matrix.python-version }}"
