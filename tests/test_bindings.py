@@ -137,6 +137,19 @@ def test_field_generation(structured_in_and_out_fields):
     assert np.allclose(in_view + 1, out_view)
 
 
+def test_field_array_accepts_matching_dtype_and_false_copy(structured_in_and_out_fields):
+    in_f, _ = structured_in_and_out_fields
+
+    assert np.asarray(in_f, dtype=np.float64).dtype == np.float64
+    assert np.asarray(in_f, copy=False).dtype == np.float64
+
+    with pytest.raises(RuntimeError, match="dtype conversion is not supported"):
+        in_f.__array__(dtype=np.float32)
+
+    with pytest.raises(RuntimeError, match="copy is not supported"):
+        in_f.__array__(copy=True)
+
+
 def test_gmsh_output(structured_mesh):
     import os
 

@@ -7,7 +7,7 @@ inputs:
     required: true
   install-build-backend:
     description: >
-      Whether to pre-install pybind11, scikit-build-core and numpy into the
+      Whether to pre-install nanobind, scikit-build-core into the
       host environment. Required for `--no-build-isolation` builds; can be
       skipped when pip provisions an isolated build environment.
     required: false
@@ -63,4 +63,4 @@ runs:
     - name: Install Python build backend (for --no-build-isolation builds)
       if: inputs.install-build-backend == 'true'
       shell: bash
-      run: python -m pip install pybind11 scikit-build-core numpy
+      run: python -m pip install nanobind scikit-build-core
