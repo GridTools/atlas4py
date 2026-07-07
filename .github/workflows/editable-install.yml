@@ -61,6 +61,17 @@ jobs:
         python-version: ["3.13"]
 
     steps:
+
+      - name: Runner info
+        id: runner-info
+        run: |
+          set +x
+          OS_NAME=$(echo "$ImageOS" | sed 's/\([a-zA-Z]\)\([0-8]\)/\1-\2/')
+          ARCH_NAME=$(echo "$RUNNER_ARCH" | tr '[:upper:]' '[:lower:]')
+          IMAGE_NAME="${OS_NAME}-${ARCH_NAME}"
+          echo "image_name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
+          echo "image_name: $IMAGE_NAME"
+
       - name: Checkout repository
         uses: actions/checkout@v6
 
@@ -90,7 +101,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: deps/install
-          key: ext-deps-atlas-${{ env.ATLAS4PY_ATLAS_VERSION }}-eckit-${{ env.ATLAS4PY_ECKIT_VERSION }}-ecbuild-${{ env.ATLAS4PY_ECBUILD_VERSION }}-${{ runner.os }}[${{ steps.build-env.outputs.sys-deps-cache-key }}]
+          key: ext-deps-atlas-${{ env.ATLAS4PY_ATLAS_VERSION }}-eckit-${{ env.ATLAS4PY_ECKIT_VERSION }}-ecbuild-${{ env.ATLAS4PY_ECBUILD_VERSION }}-${{ steps.runner-info.outputs.image_name }}[${{ steps.build-env.outputs.sys-deps-cache-key }}]
 
       - name: Build external eckit + atlas
         if: steps.cache-deps.outputs.cache-hit != 'true'
