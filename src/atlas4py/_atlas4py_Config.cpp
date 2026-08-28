@@ -31,7 +31,7 @@ nb::object _toPyObject(double v) {
     return nb::float_(v);
 }
 nb::object _toPyObject(std::string const& v) {
-    return nb::str(v.c_str());
+    return nb::str(v.c_str(), v.size());
 }
 template <typename T>
 nb::object _toPyObject( std::vector<T> const& v ) {
