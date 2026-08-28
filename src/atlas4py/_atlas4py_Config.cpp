@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cctype>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
@@ -17,6 +19,57 @@
 namespace nb = ::nanobind;
 
 namespace {
+
+// getBoolVector() and set(..., std::vector<bool>) will be available in a future eckit version.
+template <typename T, typename = void>
+struct has_bool_vector_set : std::false_type {};
+
+template <typename T>
+struct has_bool_vector_set<
+    T,
+    std::void_t<decltype( std::declval<T&>().set( std::declval<std::string const&>(), std::declval<std::vector<bool> const&>() ) )>>
+    : std::is_same<
+          decltype( std::declval<T&>().set( std::declval<std::string const&>(), std::declval<std::vector<bool> const&>() ) ),
+          T&> {};
+
+template <typename T>
+inline constexpr bool has_bool_vector_set_v = has_bool_vector_set<std::decay_t<T>>::value;
+
+template <typename T, typename = void>
+struct has_getBoolVector : std::false_type {};
+
+template <typename T>
+struct has_getBoolVector<
+    T,
+    std::void_t<decltype( std::declval<T const&>().getBoolVector( std::declval<std::string const&>() ) )>>
+    : std::is_same<
+          decltype( std::declval<T const&>().getBoolVector( std::declval<std::string const&>() ) ),
+          std::vector<bool>> {};
+
+template <typename T>
+inline constexpr bool has_getBoolVector_v = has_getBoolVector<std::decay_t<T>>::value;
+
+template <typename ConfigurationT>
+std::vector<bool> get_bool_vector_fallback( ConfigurationT const& config, std::string const& key ) {
+    std::vector<long> integers = config.getLongVector( key );
+    std::vector<bool> values;
+    values.reserve( integers.size() );
+    for ( auto const& integer_value : integers ) {
+        values.push_back( static_cast<bool>( integer_value ) );
+    }
+    return values;
+}
+
+template <typename ConfigurationT>
+void set_bool_vector_fallback( ConfigurationT& config, std::string const& key,
+                               std::vector<bool> const& values ) {
+    std::vector<int> integers;
+    integers.reserve( values.size() );
+    for ( bool value : values ) {
+        integers.push_back( value ? 1 : 0 );
+    }
+    config.set( key, integers );
+}
 
 nb::object _toPyObject( eckit::Configuration const& v );
 nb::object _toPyObject( eckit::Configuration const& v, std::string const& key );
@@ -64,16 +117,15 @@ nb::object _toPyObject( eckit::Configuration const& v, std::string const& key ) 
         return _toPyObject( subconfigs );
     }
     else if (v.isBooleanList( key )) {
-        auto getBooleanVector = [&]() {
-            std::vector<long> values = v.getLongVector( key );
-            std::vector<bool> bools;
-            bools.reserve( values.size() );
-            for ( auto const& val : values ) {
-                bools.push_back( static_cast<bool>( val ) );
+        auto get_bool_vector = [&](auto const& config) {
+            if constexpr (has_getBoolVector_v<decltype(config)>) {
+                return config.getBoolVector( key );
             }
-            return bools;
+            else {
+                return get_bool_vector_fallback( config, key );
+            }
         };
-        return _toPyObject( getBooleanVector() );
+        return _toPyObject( get_bool_vector( v ) );
     }
     else if (v.isIntegralList( key )) {
         std::vector<long> values = v.getLongVector( key );
@@ -125,15 +177,18 @@ void config_set( eckit::LocalConfiguration& config, const std::string& key, nb::
         }
         auto elem = seq[0];
         auto handle_sequence = [&](auto&& conv) {
-            using VecType = std::vector<std::decay_t<decltype(conv(elem))>>;
+            using ValueType = std::decay_t<decltype(conv(elem))>;
+            using VecType = std::vector<ValueType>;
             VecType vec;
             for (size_t i = 0; i < n; ++i) vec.push_back(conv(seq[i]));
-            config.set(key, vec);
+            if constexpr (std::is_same_v<ValueType, bool> && !has_bool_vector_set_v<eckit::LocalConfiguration>) {
+                set_bool_vector_fallback( config, key, vec );
+            } else {
+                config.set(key, vec);
+            }
         };
         if (nb::isinstance<nb::bool_>(elem)) {
-            std::vector<int> vec;
-            for (size_t i = 0; i < n; ++i) vec.push_back( nb::cast<bool>(seq[i]) ? 1 : 0 );
-            config.set(key, vec);
+            handle_sequence([](nb::handle v) { return nb::cast<bool>(v); });
         } else if (nb::isinstance<nb::int_>(elem)) {
             handle_sequence([](nb::handle v) { return nb::cast<long long>(v); });
         } else if (nb::isinstance<nb::float_>(elem)) {
