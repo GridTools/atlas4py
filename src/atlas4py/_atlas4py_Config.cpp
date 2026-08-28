@@ -42,14 +42,6 @@ nb::object _toPyObject( std::vector<T> const& v ) {
     return ret;
 }
 
-template <>
-nb::object _toPyObject( std::vector<bool> const& v ) {
-    nb::list ret;
-    for ( auto const& val : v ) {
-        ret.append( _toPyObject( val ) );
-    }
-    return ret;
-}
 
 nb::object _toPyObject( eckit::Configuration const& v, std::string const& key ) {
     if ( v.isSubConfiguration ( key ) ) {
