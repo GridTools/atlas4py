@@ -137,6 +137,22 @@ def test_field_generation(structured_in_and_out_fields):
     assert np.allclose(in_view + 1, out_view)
 
 
+def test_metadata_mapping_protocol(structured_in_and_out_fields):
+    field, _ = structured_in_and_out_fields
+    metadata = field.metadata
+    metadata["source"] = "test"
+    metadata["level"] = 1
+
+    values = dict(metadata)
+    assert values["source"] == "test"
+    assert values["level"] == 1
+    assert list(values) == metadata.keys()
+    assert list(metadata) == metadata.keys()
+    assert len(metadata) == len(values)
+    assert "source" in metadata
+    assert metadata["source"] == "test"
+
+
 def test_field_array_accepts_matching_dtype_and_false_copy(structured_in_and_out_fields):
     in_f, _ = structured_in_and_out_fields
 
