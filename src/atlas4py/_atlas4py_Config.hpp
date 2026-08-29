@@ -15,7 +15,4 @@ namespace atlas4py {
     // Convert eckit::Configuration to a corresponding Python object
     nb::object make_object( eckit::Configuration const& v );
 
-    // Create an atlas::util::Config from Python keyword arguments
-    atlas::util::Config make_Config( nb::kwargs const& kwargs );
-
 } // namespace atlas4py

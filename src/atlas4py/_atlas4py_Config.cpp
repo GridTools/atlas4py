@@ -237,17 +237,6 @@ nb::object atlas4py::make_object( eckit::Configuration const& v ) {
     return _toPyObject( v );
 }
 
-
-atlas::util::Config atlas4py::make_Config( nb::kwargs const& kwargs ) {
-    atlas::util::Config config;
-    for( const auto& pair : kwargs ) {
-        const auto key = nb::cast<std::string>(pair.first);
-        const auto& value = pair.second;
-        config_set(config, key, value);
-    }
-    return config;
-}
-
 void atlas4py::bind_Config( nb::module_& m ) {
     using namespace nanobind::literals;
 
@@ -288,7 +277,13 @@ void atlas4py::bind_Config( nb::module_& m ) {
      nb::class_<atlas::util::Config, eckit::LocalConfiguration>( m, "Config" )
         .def( nb::init() )
         .def_static( "from_kwargs", []( nb::kwargs kwargs ) {
-            return make_Config(kwargs);
+            atlas::util::Config config;
+            for( const auto& pair : kwargs ) {
+                const auto key = nb::cast<std::string>(pair.first);
+                const auto& value = pair.second;
+                config_set(config, key, value);
+            }
+            return config;
         } )
         .def_static( "from_yaml", []( std::string const& yaml ) {
             return atlas::util::Config( eckit::YAMLConfiguration(yaml) );
