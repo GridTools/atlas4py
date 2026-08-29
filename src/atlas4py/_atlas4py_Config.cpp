@@ -97,7 +97,10 @@ nb::object _toPyObject( std::vector<T> const& v ) {
 
 
 nb::object _toPyObject( eckit::Configuration const& v, std::string const& key ) {
-    if ( v.isSubConfiguration ( key ) ) {
+    if ( v.isNull( key ) ) {
+        return nb::none();
+    }
+    else if ( v.isSubConfiguration ( key ) ) {
         return _toPyObject( v.getSubConfiguration( key ) );
     }
     else if (v.isBoolean( key )) {

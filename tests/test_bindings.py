@@ -239,7 +239,7 @@ def test_config_mapping_errors():
     with pytest.raises(KeyError, match="missing"):
         config["missing"]
 
-    for value in (object(), [object()]):
+    for value in (None, object(), [object()]):
         with pytest.raises(TypeError):
             config["unsupported"] = value
 
@@ -272,6 +272,15 @@ outer:
     assert outer["inner_option1"] == 3.14
     assert outer["inner_option2"] is True
     assert outer["inner_option3"] == "added_value"
+
+
+def test_config_null_from_yaml():
+    config = atlas4py.Config.from_yaml("a: null")
+
+    assert "a" in config
+    assert config["a"] is None
+    assert dict(config) == {"a": None}
+    assert repr(config) == "_atlas4py.Config({'a': None})"
 
 
 def test_config_boolean_list_roundtrip_from_yaml():
