@@ -296,12 +296,14 @@ void atlas4py::bind_Config( nb::module_& m ) {
             if ( !format.empty() ) {
                 auto format_lowercase = to_lowercase(format);
                 if (format_lowercase != "yaml" && format_lowercase != "json") {
-                    throw std::runtime_error("Only 'yaml' or 'json' format is supported");
+                    throw nb::value_error("Only 'yaml' or 'json' format is supported");
                 }
             }
             auto fspath = nb::module_::import_("os").attr("fspath")(path);
             return atlas::util::Config( eckit::PathName{ nb::cast<std::string>( nb::str(fspath) ) } );
-        }, "path"_a, "format"_a = "" )
+        }, "path"_a, "format"_a = "",
+        "Load a configuration file using eckit's YAML parser. Both YAML and JSON are supported; "
+        "format is an allowed-value guard and does not select a parser or validate the file contents." )
         .def( "__repr__", []( atlas::util::Config const& config ) {
             return "_atlas4py.Config("_s + nb::str( make_object( config ) ) + ")"_s;
         } );

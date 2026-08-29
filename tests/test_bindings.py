@@ -363,3 +363,14 @@ def test_config_from_file_rejects_non_pathlike_object(tmp_path):
 
     with pytest.raises(TypeError, match="expected str, bytes or os.PathLike object"):
         atlas4py.Config.from_file(StringConvertiblePath())
+
+
+def test_config_from_file_format_is_guard(tmp_path):
+    test_config_yaml = tmp_path / "test_config.yaml"
+    test_config_yaml.write_text("option: value")
+
+    assert atlas4py.Config.from_file(test_config_yaml, format="json")["option"] == "value"
+    with pytest.raises(ValueError, match="Only 'yaml' or 'json'"):
+        atlas4py.Config.from_file(test_config_yaml, format="toml")
+
+    assert "does not select a parser or validate the file contents" in atlas4py.Config.from_file.__doc__
