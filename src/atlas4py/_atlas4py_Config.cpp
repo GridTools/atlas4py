@@ -276,14 +276,13 @@ void atlas4py::bind_Config( nb::module_& m ) {
 
      nb::class_<atlas::util::Config, eckit::LocalConfiguration>( m, "Config" )
         .def( nb::init() )
-        .def_static( "from_kwargs", []( nb::kwargs kwargs ) {
-            atlas::util::Config config;
+        .def( "__init__", []( atlas::util::Config* config, nb::kwargs kwargs ) {
+            new ( config ) atlas::util::Config();
             for( const auto& pair : kwargs ) {
                 const auto key = nb::cast<std::string>(pair.first);
                 const auto& value = pair.second;
-                config_set(config, key, value);
+                config_set(*config, key, value);
             }
-            return config;
         } )
         .def_static( "from_yaml", []( std::string const& yaml ) {
             return atlas::util::Config( eckit::YAMLConfiguration(yaml) );

@@ -211,7 +211,7 @@ def test_config_set_python_types():
     assert [dict(d) for d in c["list_of_dicts"]] == [{"a": 1}, {"b": 2}]
 
 def test_config_contains():
-    config = atlas4py.Config.from_kwargs(option1="value1", option2=42)
+    config = atlas4py.Config(option1="value1", option2=42)
     assert "option1" in config
     assert "option2" in config
     assert "option3" not in config
@@ -223,7 +223,7 @@ def test_config_contains():
 
 
 def test_config_mapping_protocol():
-    config = atlas4py.Config.from_kwargs(option1="value1", option2=42, option3=3.14)
+    config = atlas4py.Config(option1="value1", option2=42, option3=3.14)
     # dict() uses keys() + __getitem__
     d = dict(config)
     assert d == {"option1": "value1", "option2": 42, "option3": 3.14}
@@ -244,8 +244,8 @@ def test_config_mapping_errors():
             config["unsupported"] = value
 
 
-def test_config_from_kwargs():
-    config = atlas4py.Config.from_kwargs(option1="value1", option2=42)
+def test_config_constructor_with_kwargs():
+    config = atlas4py.Config(option1="value1", option2=42)
     config["option3"] = 3.14
     assert config["option1"] == "value1"
     assert config["option2"] == 42
