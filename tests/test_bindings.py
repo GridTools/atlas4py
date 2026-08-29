@@ -233,6 +233,17 @@ def test_config_mapping_protocol():
     assert len(config) == 3
 
 
+def test_config_mapping_errors():
+    config = atlas4py.Config()
+
+    with pytest.raises(KeyError, match="missing"):
+        config["missing"]
+
+    for value in (object(), [object()]):
+        with pytest.raises(TypeError):
+            config["unsupported"] = value
+
+
 def test_config_from_kwargs():
     config = atlas4py.Config.from_kwargs(option1="value1", option2=42)
     config["option3"] = 3.14

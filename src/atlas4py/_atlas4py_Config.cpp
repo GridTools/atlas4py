@@ -140,7 +140,7 @@ nb::object _toPyObject( eckit::Configuration const& v, std::string const& key ) 
         return _toPyObject( values );
     }
     else {
-        throw std::out_of_range( "type of value unsupported for key " + key );
+        throw nb::type_error( ( "type of value unsupported for key " + key ).c_str() );
     }
 }
 
@@ -207,7 +207,7 @@ void config_set( eckit::LocalConfiguration& config, const std::string& key, nb::
             }
             config.set(key, vec);
         } else {
-            throw std::out_of_range("Unsupported sequence element type for key '" + key + "': got type '" + py_type_str(elem) + "'");
+            throw nb::type_error(("Unsupported sequence element type for key '" + key + "': got type '" + py_type_str(elem) + "'").c_str());
         }
     } else if (nb::isinstance<nb::mapping>(value)) {
         eckit::LocalConfiguration subconfig;
@@ -217,7 +217,7 @@ void config_set( eckit::LocalConfiguration& config, const std::string& key, nb::
         }
         config.set(key, subconfig);
     } else {
-        throw std::out_of_range("type of value unsupported for key '" + key + "': got type '" + py_type_str(value) + "'");
+        throw nb::type_error(("type of value unsupported for key '" + key + "': got type '" + py_type_str(value) + "'").c_str());
     }
 }
 
@@ -257,7 +257,7 @@ void atlas4py::bind_Config( nb::module_& m ) {
         .def( "__getitem__",
               []( eckit::Configuration const& config, std::string const& key ) -> nb::object {
                   if ( !config.has( key ) )
-                      throw std::out_of_range( "key <" + key + "> could not be found" );
+                      throw nb::key_error( ( "key <" + key + "> could not be found" ).c_str() );
                   return _toPyObject( config, key );
               } )
         .def( "__iter__",
