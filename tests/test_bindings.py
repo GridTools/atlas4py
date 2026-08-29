@@ -331,3 +331,15 @@ outer:
     assert outer["inner_option1"] == 3.14
     assert outer["inner_option2"] is True
     assert outer["inner_option3"] == "added_value"
+
+
+def test_config_from_file_rejects_non_pathlike_object(tmp_path):
+    test_config_yaml = tmp_path / "test_config.yaml"
+    test_config_yaml.write_text("option: value")
+
+    class StringConvertiblePath:
+        def __str__(self):
+            return str(test_config_yaml)
+
+    with pytest.raises(TypeError, match="expected str, bytes or os.PathLike object"):
+        atlas4py.Config.from_file(StringConvertiblePath())

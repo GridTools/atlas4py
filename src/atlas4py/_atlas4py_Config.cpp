@@ -301,7 +301,8 @@ void atlas4py::bind_Config( nb::module_& m ) {
                     throw std::runtime_error("Only 'yaml' or 'json' format is supported");
                 }
             }
-            return atlas::util::Config( eckit::PathName{nb::cast<std::string>( nb::str(path) )} );
+            auto fspath = nb::module_::import_("os").attr("fspath")(path);
+            return atlas::util::Config( eckit::PathName{ nb::cast<std::string>( nb::str(fspath) ) } );
         }, "path"_a, "format"_a = "" )
         .def( "__repr__", []( atlas::util::Config const& config ) {
             return "_atlas4py.Config("_s + nb::str( make_object( config ) ) + ")"_s;
