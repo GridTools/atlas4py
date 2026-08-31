@@ -67,6 +67,16 @@ function( atlas4py_parse_version version_str )
     list( GET _version_list 3 ${prefix}_VERSION_TWEAK )
   endif()
 
+  if( NOT DEFINED ${prefix}_VERSION_MINOR )
+    set( ${prefix}_VERSION_MINOR 0 )
+  endif()
+  if( NOT DEFINED ${prefix}_VERSION_PATCH )
+    set( ${prefix}_VERSION_PATCH 0 )
+  endif()
+  if( NOT DEFINED ${prefix}_VERSION_TWEAK )
+    set( ${prefix}_VERSION_TWEAK 0 )
+  endif()
+
   math(EXPR ${prefix}_VERSION_INT "${${prefix}_VERSION_MAJOR} * 10000 + ${${prefix}_VERSION_MINOR} * 100 + ${${prefix}_VERSION_PATCH}")
 
   ## Export variables to parent scope
