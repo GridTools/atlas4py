@@ -449,7 +449,7 @@ def test_mpi_comm_to_from_int():
     # atlas4py.mpi.Comm and vice versa
     if importlib.util.find_spec("mpi4py") is not None:
         import mpi4py.MPI
-        mpi4py_comm = mpi4py.MPI.Comm.fromint(comm_from_int)
+        mpi4py_comm = mpi4py.MPI.Comm.fromint(int(comm_from_int))
         atlas4py_comm = atlas4py.mpi.comm(mpi4py_comm.toint())
         assert atlas4py_comm.name == "world"
         # Also works directly with the mpi4py comm object,
