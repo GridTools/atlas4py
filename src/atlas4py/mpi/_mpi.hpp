@@ -12,7 +12,7 @@ mpi4py_comm = MPI.Comm.fromint( int(atlas4py.mpi.comm()) )
 atlas4py_comm = atlas4py.mpi.comm( mpi4py_comm.toint() )
 
 # You can also register the communicator by name
-atlas4py.mpi.add_comm( "my_comm", mpi4py_comm.toint() )
+atlas4py.mpi.register_comm( "my_comm", mpi4py_comm.toint() )
 
 # and retrieve it later
 atlas4py_my_comm = atlas4py.mpi.comm( "my_comm" )
