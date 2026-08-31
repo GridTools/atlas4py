@@ -2,7 +2,6 @@
 #include "_mpi.hpp"
 
 #include <sstream>
-#include <map>
 #include <stdexcept>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
@@ -87,6 +86,10 @@ int comm_to_int( const nb::object& comm ) {
 
 }
 
+// --------------------------------------------------------------------------------------------------
+// Standalone functions
+// --------------------------------------------------------------------------------------------------
+
 bool has_comm( const std::string& name ) {
     return eckit::mpi::hasComm( name.c_str() );
 }
@@ -110,10 +113,15 @@ void set_default_comm( const std::string& name) {
     eckit::mpi::setCommDefault( name.c_str() );
 }
 
+// --------------------------------------------------------------------------------------------------
+// Class Comm
+// --------------------------------------------------------------------------------------------------
+
 Comm::Comm() : comm_( atlas::mpi::comm() ) {}
 Comm::Comm( const std::string& name ) : comm_( atlas::mpi::comm(name) ) {}
 Comm::Comm( const eckit::mpi::Comm& comm ) : comm_( comm ) {}
 Comm::Comm( int comm ) : comm_( lookup_comm_in_eckit(comm, RegisterIfNotFound::yes) ) {}
+Comm::Comm( const nb::object& comm ) : Comm( comm_to_int(comm) ) {}
 
 int Comm::size() const {
     if (size_ < 0) {
@@ -155,6 +163,10 @@ Comm Comm::split(int color, const std::string& name) const {
     return Comm( comm_.split(color, name.c_str()) );
 }
 
+// --------------------------------------------------------------------------------------------------
+// Class Scope
+// --------------------------------------------------------------------------------------------------
+
 class Scope {
     public:
         Scope( const std::string& name ) {
@@ -162,26 +174,16 @@ class Scope {
         }
         Scope( const mpi::Comm& comm ) : Scope(comm.name()) {}
         Scope( const int comm ) : Scope(mpi::Comm(comm).name()) {}
-        Scope( const nb::object& comm ) : Scope(mpi::Comm(mpi::comm_to_int(comm)).name()) {}
-        ~Scope() {
-            if (not ended_) {
+        Scope( const nb::object& comm ) : Scope(mpi::Comm(comm).name()) {}
+        ~Scope() { deactivate(); }
+
+        void deactivate() {
+            if (is_active_) {
                 pop();
+                is_active_ = false;
             }
-            ended_ = true;
         }
 
-        void reset( const std::string& name ) {
-            pop();
-            push(name);
-        }
-        void reset( const mpi::Comm& comm ) {
-            pop();
-            push(comm.name());
-         }
-        void reset( std::nullptr_t ) {
-            pop();
-            ended_ = true;
-        }
         static void push(const std::string& name) {
             #if ATLAS4PY_ATLAS_VERSION_AT_LEAST(0,46,0)
                 atlas::mpi::scope::push(name);
@@ -196,10 +198,14 @@ class Scope {
                 atlas::mpi::pop();
             #endif
         }
-        bool ended_ = false;
+        bool is_active_ = true;
 };
 
 } // namespace mpi
+
+// --------------------------------------------------------------------------------------------------
+// Python module
+// --------------------------------------------------------------------------------------------------
 
 namespace nb = ::nanobind;
 void bind_submodule_mpi(nb::module_ &m) {
@@ -207,76 +213,61 @@ void bind_submodule_mpi(nb::module_ &m) {
     nb::module_ m_mpi = m.def_submodule("mpi", "mpi python binding.");
 
 
-    m_mpi.def("set_default_comm", [](const std::string& name) { mpi::set_default_comm(name); }, "name"_a);
-    m_mpi.def("has_comm", &mpi::has_comm, "name"_a );
-    m_mpi.def("list_comms", &eckit::mpi::listComms);
-    m_mpi.def("register_comm", [](const std::string& name, int comm) { return mpi::register_comm(name, comm); }, "name"_a, "comm"_a );
-    m_mpi.def("register_comm", [](const std::string& name, nb::object comm) { return mpi::register_comm(name, mpi::comm_to_int(comm)); }, "name"_a, "comm"_a );
+    m_mpi.def("set_default_comm", [](const std::string& name) { mpi::set_default_comm(name); }, "Set the default MPI communicator by name.", "name"_a);
+    m_mpi.def("has_comm", &mpi::has_comm, "Check if an MPI communicator with the given name exists.", "name"_a );
+    m_mpi.def("list_comms", &eckit::mpi::listComms, "List all registered MPI communicators.");
+    m_mpi.def("register_comm", [](const std::string& name, int comm) { return mpi::register_comm(name, comm); }, "Register an MPI communicator by name and integer handle.", "name"_a, "comm"_a );
+    m_mpi.def("register_comm", [](const std::string& name, nb::object comm) { return mpi::register_comm(name, mpi::comm_to_int(comm)); }, "Register an MPI communicator by name and object.", "name"_a, "comm"_a );
 #if ATLAS_ECKIT_VERSION_AT_LEAST(2,0,0)
-    m_mpi.def("unregister_comm", [](const std::string& name) { mpi::unregister_comm(name); }, "name"_a );
-    m_mpi.def("unregister_comm", [](mpi::Comm& comm) { mpi::unregister_comm(comm.name()); }, "comm"_a );
+    m_mpi.def("unregister_comm", [](const std::string& name) { mpi::unregister_comm(name); }, "Unregister an MPI communicator by name.", "name"_a );
+    m_mpi.def("unregister_comm", [](mpi::Comm& comm) { mpi::unregister_comm(comm.name()); }, "Unregister an MPI communicator by Comm object.", "comm"_a );
 #endif
-    m_mpi.def("delete_comm", &mpi::delete_comm, "name"_a );
-    m_mpi.def("comm", []() { return mpi::Comm(); } );
-    m_mpi.def("comm", [](const std::string& name) { return mpi::Comm(name); } );
-    m_mpi.def("comm", [](int comm) { return mpi::Comm(comm); } );
-    m_mpi.def("comm", [](nb::object comm) { return mpi::Comm(mpi::comm_to_int(comm)); } );
-    m_mpi.def("size", []() { return atlas::mpi::size(); } );
-    m_mpi.def("rank", []() { return atlas::mpi::rank(); } );
-    m_mpi.def("barrier", []() { atlas::mpi::comm().barrier(); } );
-    m_mpi.def("abort", [](int errorcode = -1) { atlas::mpi::comm().abort(errorcode); }, "errorcode"_a = -1 );
-    m_mpi.def("finalize", []() { atlas::mpi::finalize(); } );
-    m_mpi.def("push", [](const std::string& name) { mpi::Scope::push(name); }, "name"_a );
-    m_mpi.def("pop",  []() { mpi::Scope::pop(); } );
+    m_mpi.def("delete_comm", &mpi::delete_comm, "Delete the MPI communicator with the given name.", "name"_a );
+    m_mpi.def("size", []() { return atlas::mpi::size(); }, "Get the size of the default MPI communicator." );
+    m_mpi.def("rank", []() { return atlas::mpi::rank(); }, "Get the rank of the default MPI communicator." );
+    m_mpi.def("barrier", []() { atlas::mpi::comm().barrier(); }, "Synchronize all processes in the default MPI communicator." );
+    m_mpi.def("abort", [](int errorcode = -1) { atlas::mpi::comm().abort(errorcode); }, "Abort all processes in the default MPI communicator with the given error code.", "errorcode"_a = -1 );
+    m_mpi.def("finalize", []() { atlas::mpi::finalize(); }, "Finalize the MPI environment." );
+    m_mpi.def("push", [](const std::string& name) { mpi::Scope::push(name); }, "Push a new MPI scope by name.", "name"_a );
+    m_mpi.def("pop",  []() { mpi::Scope::pop(); }, "Pop the current MPI scope." );
 
-    nb::class_<mpi::Comm>( m_mpi, "Comm" )
-        .def( nb::init<>() )
-        .def_prop_ro("size", &mpi::Comm::size )
-        .def_prop_ro("rank", &mpi::Comm::rank )
-        .def_prop_ro("name", &mpi::Comm::name )
-        .def("barrier", &mpi::Comm::barrier )
-        .def("abort", &mpi::Comm::abort, "errorcode"_a = -1 )
-        .def("split", &mpi::Comm::split, "color"_a, "name"_a )
-        .def("to_int", &mpi::Comm::to_int )
-        .def("__int__", &mpi::Comm::to_int )
+    nb::class_<mpi::Comm>( m_mpi, "Comm", "Class representing an MPI communicator." )
+        .def( nb::init<>(), "Create a new default MPI communicator." )
+        .def( nb::init<int>(), "Create a new MPI communicator from an integer.", "comm"_a )
+        .def( nb::init<const std::string&>(), "Create a new MPI communicator from a name.", "name"_a )
+        .def( nb::init<nb::object>(), "Create a new MPI communicator from a Python object representing a communicator.", "comm"_a )
+        .def_prop_ro("size", &mpi::Comm::size, "The size of the MPI communicator." )
+        .def_prop_ro("rank", &mpi::Comm::rank, "The rank of the MPI communicator." )
+        .def_prop_ro("name", &mpi::Comm::name, "The name of the MPI communicator." )
+        .def("barrier", &mpi::Comm::barrier, "Synchronize all processes in the communicator." )
+        .def("abort", &mpi::Comm::abort, "Abort all processes in the communicator with the given error code.", "errorcode"_a = -1 )
+        .def("split", &mpi::Comm::split, "Split the communicator into multiple sub-communicators based on the color.", "color"_a, "name"_a )
+        .def("to_int", &mpi::Comm::to_int, "Return the integer representation of the MPI communicator." )
+        .def("__int__", &mpi::Comm::to_int, "Automatic conversion to the integer representation of the MPI communicator." )
         .def("__eq__", [](const mpi::Comm &self, const mpi::Comm &other) {
             return self.to_int() == other.to_int();
-        } )
+        }, "Check if two MPI communicators are equal based on their integer representation." )
         .def("__repr__", []( const mpi::Comm& comm ) {
-            return "_atlas4py.mpi.Comm(name=" + comm.name() + ", size=" + std::to_string( comm.size() ) +
+            return "atlas4py.mpi.Comm(" + std::to_string( comm.to_int() ) + ")";
+        }, "Return a string representation of the MPI communicator." )
+        .def("__str__", []( const mpi::Comm& comm ) {
+            return "atlas4py.mpi.Comm(name=" + comm.name() + ", size=" + std::to_string( comm.size() ) +
                    ", rank=" + std::to_string( comm.rank() ) + ", int=" + std::to_string( comm.to_int() ) + ")";
-        } );
+        }, "Return a human-readable string representation of the MPI communicator." )
+        .def_prop_ro_static("WORLD", [](nb::object cls) { return mpi::Comm::WORLD(); }, "Return the MPI_COMM_WORLD communicator." )
+        .def_prop_ro_static("SELF", [](nb::object cls) { return mpi::Comm::SELF(); }, "Return the MPI_COMM_SELF communicator." );
 
-    nb::class_<mpi::Scope>( m_mpi, "Scope" )
-        .def( nb::init<const std::string&>(), "name"_a )
-        .def( nb::init<const mpi::Comm&>(), "comm"_a )
-        .def( nb::init<int>(), "comm"_a )
-        .def( nb::init<nb::object>(), "comm"_a )
-        .def( "__enter__", []( mpi::Scope& self ) { return &self; } )
-        .def( "__exit__", []( mpi::Scope& self, nb::object exc_type, nb::object exc_value, nb::object traceback ) { self.reset(nullptr); }, "exc_type"_a = nb::none(), "exc_value"_a = nb::none(), "traceback"_a = nb::none() );
+    nb::class_<mpi::Scope>( m_mpi, "Scope", "Class representing an MPI scope." )
+        .def( nb::init<const std::string&>(), "Create a new MPI scope from a name.", "name"_a )
+        .def( nb::init<const mpi::Comm&>(), "Create a new MPI scope from an existing MPI communicator.", "comm"_a )
+        .def( nb::init<int>(), "Create a new MPI scope from an integer representing a communicator.", "comm"_a )
+        .def( nb::init<nb::object>(), "Create a new MPI scope from a Python object representing a communicator.", "comm"_a )
+        .def( "__enter__", []( mpi::Scope& self ) { return &self; }, "Enter the MPI scope." )
+        .def( "__exit__", []( mpi::Scope& self, nb::object exc_type, nb::object exc_value, nb::object traceback ) { self.deactivate(); }, "Exit the MPI scope.", "exc_type"_a = nb::none(), "exc_value"_a = nb::none(), "traceback"_a = nb::none() )
+        .def( "__repr__", []( const mpi::Scope& scope ) {
+            return "atlas4py.mpi.Scope(name=" + atlas::mpi::comm().name() + ")";
+        }, "Return a string representation of the MPI scope." );
 
-    m_mpi.def("__getattr__", [m_mpi](nb::handle name) -> nb::object {
-        // Check if the requested attribute is the one we want to lazily initialize
-        std::string name_str = nb::cast<std::string>(name);
-        if (name_str == "COMM_WORLD" || name_str == "COMM_SELF") {
-            const mpi::Comm& comm = [name_str]() -> const mpi::Comm& {
-                if (name_str == "COMM_WORLD") {
-                    return mpi::Comm::WORLD();
-                }
-                else { // name_str == "COMM_SELF"
-                    return mpi::Comm::SELF();
-                }
-            }();
-            nb::object value = nb::cast(comm, nb::rv_policy::reference); // policy::reference tells nanobind NOT to manage the memory.
-
-            // 2. Cache it in the module's __dict__ for fast subsequent access
-            // This makes it act like a read-only property after the first call
-            nb::getattr(nb::handle(m_mpi), "__dict__")[name] = value;
-            return value;
-        }
-        // Raise AttributeError for other missing attributes
-        throw nb::attribute_error();
-    });
 }
 
 

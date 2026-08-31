@@ -36,6 +36,7 @@ public:
     Comm();
     Comm( const std::string& name );
     Comm( const eckit::mpi::Comm& comm );
+    Comm( const nb::object& comm );
     explicit Comm( int comm );
     int size() const;
     int rank() const;
