@@ -231,19 +231,19 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "lon", nb::overload_cast<>( &PointLonLat::lon, nb::const_ ) )
         .def_prop_ro( "lat", nb::overload_cast<>( &PointLonLat::lat, nb::const_ ) )
         .def( "__repr__", []( PointLonLat const& p ) {
-            return "_atlas4py.PointLonLat(lon=" + std::to_string( p.lon() ) + ", lat=" + std::to_string( p.lat() ) + ")";
+            return "atlas4py.PointLonLat(lon="_s + nb::str( nb::float_( p.lon() ) ) + ", lat="_s + nb::str( nb::float_( p.lat() ) ) + ")"_s;
         } );
     nb::class_<PointXY>( m, "PointXY" )
         .def( nb::init<double,double>(), "x"_a, "y"_a )
         .def_prop_ro( "x", nb::overload_cast<>( &PointXY::x, nb::const_ ) )
         .def_prop_ro( "y", nb::overload_cast<>( &PointXY::y, nb::const_ ) )
         .def( "__repr__", []( PointXY const& p ) {
-            return "_atlas4py.PointXY(x=" + std::to_string( p.x() ) + ", y=" + std::to_string( p.y() ) + ")";
+            return "atlas4py.PointXY(x="_s + nb::str( nb::float_( p.x() ) ) + ", y="_s + nb::str( nb::float_( p.y() ) ) + ")"_s;
         } );
 
     nb::class_<Projection>( m, "Projection" )
         .def( "__repr__", []( Projection const& p ) {
-        return "_atlas4py.Projection("_s + nb::str( atlas4py::make_object( p.spec() ) ) + ")"_s;
+        return "<atlas4py.Projection("_s + nb::str( atlas4py::make_object( p.spec() ) ) + ")>"_s;
         } );
 
     nb::class_<Domain>( m, "Domain" )
@@ -252,9 +252,9 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "units", &Domain::units )
         .def( "__repr__", []( Domain const& d ) {
             if (d) {
-                return nb::str("_atlas4py.Domain("_s + nb::str( atlas4py::make_object( d.spec() ) ) + ")"_s);
+                return nb::str("<atlas4py.Domain("_s + nb::str( atlas4py::make_object( d.spec() ) ) + ")>"_s);
             }
-            return nb::str("_atlas4py.Domain()"_s);
+            return nb::str("<atlas4py.Domain()>"_s);
         } );
     nb::class_<RectangularDomain, Domain>( m, "RectangularDomain" )
         .def( nb::init<const atlas::RectangularDomain::Interval&, const atlas::RectangularDomain::Interval&, const std::string&>(), "x_interval"_a, "y_interval"_a, "units"_a = "degrees" );
@@ -267,13 +267,13 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "projection", &Grid::projection )
         .def_prop_ro( "domain", &Grid::domain )
         .def( "__repr__",
-              []( Grid const& g ) { return "_atlas4py.Grid("_s + nb::str( atlas4py::make_object( g.spec() ) ) + ")"_s; } );
+              []( Grid const& g ) { return "<atlas4py.Grid("_s + nb::str( atlas4py::make_object( g.spec() ) ) + ")>"_s; } );
 
     nb::class_<grid::Spacing>( m, "Spacing" )
         .def( "__len__", &grid::Spacing::size )
         .def( "__getitem__", &grid::Spacing::operator[])
         .def( "__repr__", []( grid::Spacing const& spacing ) {
-            return "_atlas4py.Spacing("_s + nb::str( atlas4py::make_object( spacing.spec() ) ) + ")"_s;
+            return "<atlas4py.Spacing("_s + nb::str( atlas4py::make_object( spacing.spec() ) ) + ")>"_s;
         } );
     nb::class_<grid::LinearSpacing, grid::Spacing>( m, "LinearSpacing" )
         .def( nb::init<double,double,long,bool>(), "start"_a, "stop"_a, "N"_a, "endpoint_included"_a = true );
@@ -343,6 +343,20 @@ NB_MODULE( _atlas4py, m ) {
             })
         .def("__dlpack_device__", [](nb::handle /*self*/) {
             return std::make_pair(nb::device::cpu::value, 0);
+        })
+        .def("__repr__", []( Field const& field ) -> std::string {
+            std::ostringstream oss;
+            oss << "<atlas4py.Field"
+                << " name=" << field.name()
+                << " shape=(";
+            for (size_t i = 0; i < field.shape().size(); ++i) {
+                if (i > 0) oss << ", ";
+                oss << field.shape()[i];
+            }
+            oss << ")"
+                << " dtype=" << atlas4py::dtype::to_python_name(field.datatype())
+                << ">";
+            return oss.str();
         });
 
     nb::class_<Mesh>( m, "Mesh" )
@@ -350,13 +364,28 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "projection", &Mesh::projection )
         .def_prop_ro( "nodes", nb::overload_cast<>( &Mesh::nodes, nb::const_ ))
         .def_prop_ro( "edges", nb::overload_cast<>( &Mesh::edges, nb::const_ ))
-        .def_prop_ro( "cells", nb::overload_cast<>( &Mesh::cells, nb::const_ ));
+        .def_prop_ro( "cells", nb::overload_cast<>( &Mesh::cells, nb::const_ ))
+        .def("__repr__", []( Mesh const& mesh ) -> std::string {
+            size_t halo = 0;
+            mesh.metadata().get("halo", halo);
+            std::ostringstream oss;
+            oss << "<atlas4py.mesh.Mesh"
+                << " nb_nodes=" << mesh.nodes().size()
+                << " nb_cells=" << mesh.cells().size()
+                << " nb_edges=" << mesh.edges().size()
+                << " halo=" << halo
+                << ">";
+            return oss.str();
+        } );
 
     nb::class_<StructuredMeshGenerator>( m, "StructuredMeshGenerator" )
         // TODO in FunctionSpace below we expose config options, not the whole config object
         .def( nb::init<const util::Config&>(), "config"_a )
         .def( nb::init() )
-        .def( "generate", nb::overload_cast<Grid const&>( &StructuredMeshGenerator::generate, nb::const_ ) );
+        .def( "generate", nb::overload_cast<Grid const&>( &StructuredMeshGenerator::generate, nb::const_ ) )
+        .def( "__repr__", []( StructuredMeshGenerator const& smg ) -> std::string {
+            return "<atlas4py.mesh.StructuredMeshGenerator>";
+        } );
 
     m.def( "build_edges", []( Mesh& mesh, const eckit::Configuration& config ) {
         mesh::actions::build_edges( mesh, config);
@@ -381,7 +410,17 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "rows", &mesh::IrregularConnectivity::rows )
         .def( "cols", &mesh::IrregularConnectivity::cols, "row_idx"_a )
         .def_prop_ro( "maxcols", &mesh::IrregularConnectivity::maxcols )
-        .def_prop_ro( "mincols", &mesh::IrregularConnectivity::mincols );
+        .def_prop_ro( "mincols", &mesh::IrregularConnectivity::mincols )
+        .def("__repr__", []( mesh::IrregularConnectivity const& c ) {
+            std::ostringstream oss;
+            if (c.rows() == 0) {
+                oss << "<atlas4py.mesh.IrregularConnectivity empty>";
+            }
+            else {
+                oss << "<atlas4py.mesh.IrregularConnectivity rows=" << c.rows() << " mincols=" << c.mincols() << " maxcols=" << c.maxcols() << ">";
+            }
+            return oss.str();
+        } );
 
     nb::class_<mesh::BlockConnectivity>( m, "BlockConnectivity" )
         .def( "__getitem__",
@@ -390,7 +429,17 @@ NB_MODULE( _atlas4py, m ) {
                   return c( row, col );
               } )
         .def_prop_ro( "rows", &mesh::BlockConnectivity::rows )
-        .def_prop_ro( "cols", &mesh::BlockConnectivity::cols );
+        .def_prop_ro( "cols", &mesh::BlockConnectivity::cols )
+        .def("__repr__", []( mesh::BlockConnectivity const& c ) {
+            std::ostringstream oss;
+            if (c.rows() == 0) {
+                oss << "<atlas4py.mesh.BlockConnectivity empty>";
+            }
+            else {
+                oss << "<atlas4py.mesh.BlockConnectivity rows=" << c.rows() << " cols=" << c.cols() << ">";
+            }
+            return oss.str();
+        } );
 
     nb::class_<mesh::MultiBlockConnectivity>( m, "MultiBlockConnectivity" )
         .def( "__getitem__",
@@ -408,7 +457,17 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "maxcols", &mesh::MultiBlockConnectivity::maxcols )
         .def_prop_ro( "mincols", &mesh::MultiBlockConnectivity::mincols )
         .def_prop_ro( "blocks", &mesh::MultiBlockConnectivity::blocks )
-        .def( "block", nb::overload_cast<idx_t>( &mesh::MultiBlockConnectivity::block, nb::const_ ), nb::rv_policy::reference_internal );
+        .def( "block", nb::overload_cast<idx_t>( &mesh::MultiBlockConnectivity::block, nb::const_ ), nb::rv_policy::reference_internal )
+        .def("__repr__", []( mesh::MultiBlockConnectivity const& c ) {
+            std::ostringstream oss;
+            if (c.rows() == 0) {
+                oss << "<atlas4py.mesh.MultiBlockConnectivity empty>";
+            }
+            else {
+                oss << "<atlas4py.mesh.MultiBlockConnectivity blocks=" << c.blocks() << " rows=" << c.rows() << " mincols=" << c.mincols() << " maxcols=" << c.maxcols() << ">";
+            }
+            return oss.str();
+        } );
 
     nb::class_<mesh::Nodes>( m, "Nodes" )
         .def_prop_ro( "size", &mesh::Nodes::size )
@@ -416,7 +475,12 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "cell_connectivity", nb::overload_cast<>( &mesh::Nodes::cell_connectivity, nb::const_ ) )
         .def_prop_ro( "lonlat", nb::overload_cast<>( &Mesh::Nodes::lonlat, nb::const_ ) )
         .def("field", []( mesh::Nodes const& n, std::string const& name ) { return n.field( name ); }, "name"_a, nb::rv_policy::reference_internal )
-        .def( "flags", []( mesh::Nodes const& n ) { return n.flags(); }, nb::rv_policy::reference_internal);
+        .def( "flags", []( mesh::Nodes const& n ) { return n.flags(); }, nb::rv_policy::reference_internal)
+        .def("__repr__", []( mesh::Nodes const& n ) {
+            std::ostringstream oss;
+            oss << "<atlas4py.mesh.Nodes size=" << n.size() << ">";
+            return oss.str();
+        } );
 
     nb::class_<mesh::HybridElements>( m, "HybridElements" )
         .def_prop_ro( "size", &mesh::HybridElements::size )
@@ -426,7 +490,12 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "edge_connectivity", nb::overload_cast<>( &mesh::HybridElements::edge_connectivity, nb::const_ ) )
         .def_prop_ro( "cell_connectivity", nb::overload_cast<>( &mesh::HybridElements::cell_connectivity, nb::const_ ) )
         .def( "field", []( mesh::HybridElements const& he, std::string const& name ) { return he.field( name ); }, "name"_a, nb::rv_policy::reference_internal )
-        .def( "flags", []( mesh::HybridElements const& he ) { return he.flags(); }, nb::rv_policy::reference_internal );
+        .def( "flags", []( mesh::HybridElements const& he ) { return he.flags(); }, nb::rv_policy::reference_internal )
+        .def("__repr__", []( mesh::HybridElements const& he ) {
+            std::ostringstream oss;
+            oss << "<atlas4py.mesh.HybridElements size=" << he.size() << ">";
+            return oss.str();
+        } );
 
     auto m_fs = m.def_submodule( "functionspace" );
     nb::class_<FunctionSpace>( m_fs, "FunctionSpace" )
@@ -450,27 +519,59 @@ NB_MODULE( _atlas4py, m ) {
                     config = config | option::variables( *variables );
                 config = config | option::datatype( atlas4py::dtype::from_python_object( dtype ) );
                 return fs.createField( config );
-            }, "dtype"_a,  "name"_a = std::nullopt, "levels"_a = std::nullopt, "variables"_a = std::nullopt );
+            }, "dtype"_a,  "name"_a = std::nullopt, "levels"_a = std::nullopt, "variables"_a = std::nullopt )
+        .def("__repr__", []( FunctionSpace const& fs ) {
+            std::ostringstream oss;
+            oss << "<atlas4py.functionspace.FunctionSpace type=" << fs.type() << " size=" << fs.size() << ">"; 
+            return oss.str();
+        } );
 
     nb::class_<functionspace::EdgeColumns, FunctionSpace>( m_fs, "EdgeColumns" )
         .def("__init__", [](functionspace::EdgeColumns *t, const Mesh&m, int halo) { new (t) functionspace::EdgeColumns(m, util::Config()( "halo", halo )); }, "mesh"_a, "halo"_a = 0 )
         .def_prop_ro( "nb_edges", &functionspace::EdgeColumns::nb_edges )
         .def_prop_ro( "mesh", &functionspace::EdgeColumns::mesh )
         .def_prop_ro( "edges", &functionspace::EdgeColumns::edges )
-        .def_prop_ro( "valid", &functionspace::EdgeColumns::valid );
+        .def_prop_ro( "valid", &functionspace::EdgeColumns::valid )
+        .def("__repr__", []( functionspace::EdgeColumns const& ec ) -> std::string {
+            std::ostringstream oss;
+            if ( !ec.valid() ) {
+                oss << "<atlas4py.functionspace.EdgeColumns invalid>";
+            } else {
+                oss << "<atlas4py.functionspace.EdgeColumns size=" << ec.size() << ">";
+            }
+            return oss.str();
+        } );
 
     nb::class_<functionspace::NodeColumns, FunctionSpace>( m_fs, "NodeColumns" )
         .def("__init__", [](functionspace::NodeColumns *t, const Mesh&m, int halo) { new (t) functionspace::NodeColumns(m, util::Config()( "halo", halo )); }, "mesh"_a, "halo"_a = 0 )
         .def_prop_ro( "nb_nodes", &functionspace::NodeColumns::nb_nodes )
         .def_prop_ro( "mesh", &functionspace::NodeColumns::mesh )
         .def_prop_ro( "nodes", &functionspace::NodeColumns::nodes )
-        .def_prop_ro( "valid", &functionspace::NodeColumns::valid );
+        .def_prop_ro( "valid", &functionspace::NodeColumns::valid )
+        .def("__repr__", []( functionspace::NodeColumns const& nc ) -> std::string {
+            std::ostringstream oss;
+            if ( !nc.valid() ) {
+                oss << "<atlas4py.functionspace.NodeColumns invalid>";
+            } else {
+                oss << "<atlas4py.functionspace.NodeColumns size=" << nc.nb_nodes() << ">";
+            }
+            return oss.str();
+        } );
     nb::class_<functionspace::CellColumns, FunctionSpace>( m_fs, "CellColumns" )
         .def("__init__", [](functionspace::CellColumns *t, const Mesh&m, int halo) { new (t) functionspace::CellColumns(m, util::Config()( "halo", halo )); }, "mesh"_a, "halo"_a = 0 )
         .def_prop_ro( "nb_cells", &functionspace::CellColumns::nb_cells )
         .def_prop_ro( "mesh", &functionspace::CellColumns::mesh )
         .def_prop_ro( "cells", &functionspace::CellColumns::cells )
-        .def_prop_ro( "valid", &functionspace::CellColumns::valid );
+        .def_prop_ro( "valid", &functionspace::CellColumns::valid )
+        .def("__repr__", []( functionspace::CellColumns const& cc ) -> std::string {
+            std::ostringstream oss;
+            if ( !cc.valid() ) {
+                oss << "<atlas4py.functionspace.CellColumns invalid>";
+            } else {
+                oss << "<atlas4py.functionspace.CellColumns size=" << cc.nb_cells() << ">";
+            }
+            return oss.str();
+        } );
 
     nb::class_<util::Metadata, eckit::LocalConfiguration>( m, "Metadata" )
         .def( "__repr__", []( util::Metadata const& metadata ) {
@@ -495,6 +596,9 @@ NB_MODULE( _atlas4py, m ) {
     topology.def_static( "check", &mesh::Nodes::Topology::check );
     topology.def_static( "check_all", &mesh::Nodes::Topology::check_all );
     topology.def_static( "check_any", &mesh::Nodes::Topology::check_any );
+    topology.def("__repr__", []( mesh::Nodes::Topology const& topology ) {
+        return "<atlas4py.mesh.Nodes.Topology>";
+    } );
 
     nb::class_<output::Gmsh>( m, "Gmsh" )
         .def( nb::init<std::string const&>(), "path"_a )
@@ -503,5 +607,5 @@ NB_MODULE( _atlas4py, m ) {
         .def( "write", []( output::Gmsh& gmsh, Mesh const& mesh ) { gmsh.write( mesh ); }, "mesh"_a )
         .def( "write", []( output::Gmsh& gmsh, Field const& field ) { gmsh.write( field ); }, "field"_a )
         .def( "write", []( output::Gmsh& gmsh, Field const& field, FunctionSpace const& fs ) { gmsh.write( field, fs ); }, "field"_a, "functionspace"_a )
-        .def("__repr__", []( output::Gmsh const& gmsh ) { return "_atlas4py.output.Gmsh()"; } );
+        .def("__repr__", []( output::Gmsh const& gmsh ) { return "<atlas4py.Gmsh>"; } );
 }

@@ -40,6 +40,21 @@ def test_version():
     assert isinstance(atlas4py.__version__, str)
 
 
+@pytest.mark.parametrize(
+    ("point", "coordinates"),
+    [
+        (atlas4py.PointLonLat(12.345678901234, -3.456789012345), ("lon", "lat")),
+        (atlas4py.PointXY(-2.345678901234, 8.456789012345), ("x", "y")),
+    ],
+)
+def test_point_repr_roundtrip(point, coordinates):
+    reconstructed = eval(repr(point))
+
+    assert type(reconstructed) is type(point)
+    for coordinate in coordinates:
+        assert getattr(reconstructed, coordinate) == getattr(point, coordinate)
+
+
 def test_grid_generation(structured_grid):
     assert structured_grid.domain.type == "rectangular"
     assert structured_grid.regular == True
