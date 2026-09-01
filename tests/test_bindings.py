@@ -40,6 +40,21 @@ def test_version():
     assert isinstance(atlas4py.__version__, str)
 
 
+@pytest.mark.parametrize(
+    ("point", "coordinates"),
+    [
+        (atlas4py.PointLonLat(12.345678901234, -3.456789012345), ("lon", "lat")),
+        (atlas4py.PointXY(-2.345678901234, 8.456789012345), ("x", "y")),
+    ],
+)
+def test_point_repr_roundtrip(point, coordinates):
+    reconstructed = eval(repr(point))
+
+    assert type(reconstructed) is type(point)
+    for coordinate in coordinates:
+        assert getattr(reconstructed, coordinate) == getattr(point, coordinate)
+
+
 def test_grid_generation(structured_grid):
     assert structured_grid.domain.type == "rectangular"
     assert structured_grid.regular == True
@@ -117,8 +132,53 @@ def test_mesh_connectivity(structured_mesh):
     assert block[0, 3] == 21
 
 
+def test_mesh_and_connectivity_repr_branches():
+    grid = atlas4py.StructuredGrid(
+        x_spacing=atlas4py.LinearSpacing(-1, 1, 4),
+        y_spacing=atlas4py.LinearSpacing(-1, 1, 3),
+    )
+    generator = atlas4py.StructuredMeshGenerator()
+    mesh = generator.generate(grid)
+
+    assert repr(generator) == "<atlas4py.StructuredMeshGenerator>"
+    assert repr(mesh) == "<atlas4py.Mesh nb_nodes=12 nb_cells=6 nb_edges=0 halo=0>"
+    assert repr(mesh.nodes) == "<atlas4py.Nodes size=12>"
+    assert repr(mesh.cells) == "<atlas4py.HybridElements size=6>"
+    assert repr(mesh.nodes.edge_connectivity) == "<atlas4py.IrregularConnectivity empty>"
+    assert repr(mesh.nodes.cell_connectivity) == "<atlas4py.IrregularConnectivity empty>"
+    assert repr(mesh.cells.edge_connectivity) == "<atlas4py.MultiBlockConnectivity empty>"
+    assert repr(mesh.cells.cell_connectivity) == "<atlas4py.MultiBlockConnectivity empty>"
+    assert repr(mesh.cells.node_connectivity) == (
+        "<atlas4py.MultiBlockConnectivity blocks=2 rows=6 mincols=3 maxcols=4>"
+    )
+    assert repr(mesh.cells.node_connectivity.block(0)) == (
+        "<atlas4py.BlockConnectivity rows=6 cols=4>"
+    )
+
+    atlas4py.build_edges(mesh)
+    atlas4py.build_node_to_edge_connectivity(mesh)
+
+    assert repr(mesh) == "<atlas4py.Mesh nb_nodes=12 nb_cells=6 nb_edges=17 halo=0>"
+    assert repr(mesh.nodes.edge_connectivity) == (
+        "<atlas4py.IrregularConnectivity rows=12 mincols=2 maxcols=4>"
+    )
+
+
 def test_function_space_generation(structured_function_space):
     assert structured_function_space.nb_cells == 380
+
+
+def test_function_space_repr(structured_mesh):
+    edge_columns = atlas4py.functionspace.EdgeColumns(structured_mesh)
+    node_columns = atlas4py.functionspace.NodeColumns(structured_mesh)
+    cell_columns = atlas4py.functionspace.CellColumns(structured_mesh)
+
+    assert repr(edge_columns) == "<atlas4py.functionspace.EdgeColumns size=799>"
+    assert repr(node_columns) == "<atlas4py.functionspace.NodeColumns size=420>"
+    assert repr(cell_columns) == "<atlas4py.functionspace.CellColumns size=380>"
+    assert atlas4py.functionspace.FunctionSpace.__repr__(cell_columns) == (
+        "<atlas4py.functionspace.FunctionSpace type=CellColumns size=380>"
+    )
 
 
 def test_field_generation(structured_in_and_out_fields):
@@ -136,6 +196,8 @@ def test_field_generation(structured_in_and_out_fields):
 
     assert np.allclose(in_view + 1, out_view)
 
+    assert repr(in_f) == "<atlas4py.Field name=my_in_field shape=(380, 1) dtype=float64>"
+
 
 def test_metadata_mapping_protocol(structured_in_and_out_fields):
     field, _ = structured_in_and_out_fields
@@ -151,6 +213,10 @@ def test_metadata_mapping_protocol(structured_in_and_out_fields):
     assert len(metadata) == len(values)
     assert "source" in metadata
     assert metadata["source"] == "test"
+    assert repr(metadata) == (
+        "atlas4py.Metadata({'name': 'my_in_field', 'levels': 1, 'variables': 0, "
+        "'global': False, 'source': 'test', 'level': 1})"
+    )
 
 
 def test_field_array_accepts_matching_dtype_and_false_copy(structured_in_and_out_fields):
@@ -171,6 +237,7 @@ def test_gmsh_output(structured_mesh):
 
     output_file = "test_output.msh"
     with atlas4py.Gmsh(path=output_file) as gmsh:
+        assert repr(gmsh) == "<atlas4py.Gmsh>"
         gmsh.write(structured_mesh)
 
     # Check that the file was created and has content
