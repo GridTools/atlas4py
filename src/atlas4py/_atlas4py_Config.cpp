@@ -240,7 +240,7 @@ nb::object atlas4py::make_object( eckit::Configuration const& v ) {
 void atlas4py::bind_Config( nb::module_& m ) {
     using namespace nanobind::literals;
 
-    nb::class_<eckit::Configuration>( m, "eckit.Configuration" )
+    nb::class_<eckit::Configuration>( m, "_eckit_Configuration" )
         .def( "keys", &eckit::Configuration::keys )
         .def( "__contains__",
               []( eckit::Configuration const& config, std::string const& key ) {
@@ -261,17 +261,17 @@ void atlas4py::bind_Config( nb::module_& m ) {
                   return config.keys().size();
               } )
         .def( "__repr__", []( eckit::Configuration const& config ) {
-            return "_atlas4py.eckit.Configuration("_s + nb::str( make_object( config ) ) + ")"_s;
+            return "atlas4py._atlas4py._eckit_Configuration("_s + nb::str( make_object( config ) ) + ")"_s;
         } );
 
-    nb::class_<eckit::LocalConfiguration, eckit::Configuration>( m, "eckit.LocalConfiguration" )
+    nb::class_<eckit::LocalConfiguration, eckit::Configuration>( m, "_eckit_LocalConfiguration" )
         .def( nb::init() )
         .def( "__setitem__",
               []( eckit::LocalConfiguration& config, std::string const& key, nb::object value ) {
                   config_set(config,key,value);
               } )
         .def( "__repr__", []( eckit::LocalConfiguration const& config ) {
-            return "_atlas4py.eckit.LocalConfiguration("_s + nb::str( make_object( config ) ) + ")"_s;
+            return "atlas4py._atlas4py._eckit_LocalConfiguration("_s + nb::str( make_object( config ) ) + ")"_s;
         } );
 
      nb::class_<atlas::util::Config, eckit::LocalConfiguration>( m, "Config" )

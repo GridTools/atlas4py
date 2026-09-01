@@ -233,6 +233,19 @@ def test_config_mapping_protocol():
     assert len(config) == 3
 
 
+def test_config_eckit_base_classes_are_private():
+    extension = atlas4py._atlas4py
+
+    assert not hasattr(atlas4py, "_eckit_Configuration")
+    assert not hasattr(atlas4py, "_eckit_LocalConfiguration")
+    assert extension._eckit_Configuration.__module__ == "atlas4py._atlas4py"
+    assert extension._eckit_LocalConfiguration.__module__ == "atlas4py._atlas4py"
+    assert atlas4py.Config.__mro__[1:3] == (
+        extension._eckit_LocalConfiguration,
+        extension._eckit_Configuration,
+    )
+
+
 def test_config_mapping_errors():
     config = atlas4py.Config()
 
