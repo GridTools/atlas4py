@@ -369,7 +369,7 @@ NB_MODULE( _atlas4py, m ) {
             size_t halo = 0;
             mesh.metadata().get("halo", halo);
             std::ostringstream oss;
-            oss << "<atlas4py.mesh.Mesh"
+            oss << "<atlas4py.Mesh"
                 << " nb_nodes=" << mesh.nodes().size()
                 << " nb_cells=" << mesh.cells().size()
                 << " nb_edges=" << mesh.edges().size()
@@ -384,7 +384,7 @@ NB_MODULE( _atlas4py, m ) {
         .def( nb::init() )
         .def( "generate", nb::overload_cast<Grid const&>( &StructuredMeshGenerator::generate, nb::const_ ) )
         .def( "__repr__", []( StructuredMeshGenerator const& smg ) -> std::string {
-            return "<atlas4py.mesh.StructuredMeshGenerator>";
+            return "<atlas4py.StructuredMeshGenerator>";
         } );
 
     m.def( "build_edges", []( Mesh& mesh, const eckit::Configuration& config ) {
@@ -414,10 +414,10 @@ NB_MODULE( _atlas4py, m ) {
         .def("__repr__", []( mesh::IrregularConnectivity const& c ) {
             std::ostringstream oss;
             if (c.rows() == 0) {
-                oss << "<atlas4py.mesh.IrregularConnectivity empty>";
+                oss << "<atlas4py.IrregularConnectivity empty>";
             }
             else {
-                oss << "<atlas4py.mesh.IrregularConnectivity rows=" << c.rows() << " mincols=" << c.mincols() << " maxcols=" << c.maxcols() << ">";
+                oss << "<atlas4py.IrregularConnectivity rows=" << c.rows() << " mincols=" << c.mincols() << " maxcols=" << c.maxcols() << ">";
             }
             return oss.str();
         } );
@@ -433,10 +433,10 @@ NB_MODULE( _atlas4py, m ) {
         .def("__repr__", []( mesh::BlockConnectivity const& c ) {
             std::ostringstream oss;
             if (c.rows() == 0) {
-                oss << "<atlas4py.mesh.BlockConnectivity empty>";
+                oss << "<atlas4py.BlockConnectivity empty>";
             }
             else {
-                oss << "<atlas4py.mesh.BlockConnectivity rows=" << c.rows() << " cols=" << c.cols() << ">";
+                oss << "<atlas4py.BlockConnectivity rows=" << c.rows() << " cols=" << c.cols() << ">";
             }
             return oss.str();
         } );
@@ -461,10 +461,10 @@ NB_MODULE( _atlas4py, m ) {
         .def("__repr__", []( mesh::MultiBlockConnectivity const& c ) {
             std::ostringstream oss;
             if (c.rows() == 0) {
-                oss << "<atlas4py.mesh.MultiBlockConnectivity empty>";
+                oss << "<atlas4py.MultiBlockConnectivity empty>";
             }
             else {
-                oss << "<atlas4py.mesh.MultiBlockConnectivity blocks=" << c.blocks() << " rows=" << c.rows() << " mincols=" << c.mincols() << " maxcols=" << c.maxcols() << ">";
+                oss << "<atlas4py.MultiBlockConnectivity blocks=" << c.blocks() << " rows=" << c.rows() << " mincols=" << c.mincols() << " maxcols=" << c.maxcols() << ">";
             }
             return oss.str();
         } );
@@ -473,12 +473,12 @@ NB_MODULE( _atlas4py, m ) {
         .def_prop_ro( "size", &mesh::Nodes::size )
         .def_prop_ro( "edge_connectivity", nb::overload_cast<>( &mesh::Nodes::edge_connectivity, nb::const_ ) )
         .def_prop_ro( "cell_connectivity", nb::overload_cast<>( &mesh::Nodes::cell_connectivity, nb::const_ ) )
-        .def_prop_ro( "lonlat", nb::overload_cast<>( &Mesh::Nodes::lonlat, nb::const_ ) )
+        .def_prop_ro( "lonlat", nb::overload_cast<>( &mesh::Nodes::lonlat, nb::const_ ) )
         .def("field", []( mesh::Nodes const& n, std::string const& name ) { return n.field( name ); }, "name"_a, nb::rv_policy::reference_internal )
         .def( "flags", []( mesh::Nodes const& n ) { return n.flags(); }, nb::rv_policy::reference_internal)
         .def("__repr__", []( mesh::Nodes const& n ) {
             std::ostringstream oss;
-            oss << "<atlas4py.mesh.Nodes size=" << n.size() << ">";
+            oss << "<atlas4py.Nodes size=" << n.size() << ">";
             return oss.str();
         } );
 
@@ -493,7 +493,7 @@ NB_MODULE( _atlas4py, m ) {
         .def( "flags", []( mesh::HybridElements const& he ) { return he.flags(); }, nb::rv_policy::reference_internal )
         .def("__repr__", []( mesh::HybridElements const& he ) {
             std::ostringstream oss;
-            oss << "<atlas4py.mesh.HybridElements size=" << he.size() << ">";
+            oss << "<atlas4py.HybridElements size=" << he.size() << ">";
             return oss.str();
         } );
 
@@ -597,7 +597,7 @@ NB_MODULE( _atlas4py, m ) {
     topology.def_static( "check_all", &mesh::Nodes::Topology::check_all );
     topology.def_static( "check_any", &mesh::Nodes::Topology::check_any );
     topology.def("__repr__", []( mesh::Nodes::Topology const& topology ) {
-        return "<atlas4py.mesh.Nodes.Topology>";
+        return "<atlas4py.Topology>";
     } );
 
     nb::class_<output::Gmsh>( m, "Gmsh" )
