@@ -67,5 +67,9 @@ macro(atlas4py_add_atlas)
         set(ATLAS_ENABLE_ECKIT_CMD OFF)
 
         FetchContent_MakeAvailable(eckit atlas)
+        find_package(atlas CONFIG REQUIRED)
     endif()
+
+    include(cmake/atlas4py_parse_version.cmake)
+    atlas4py_parse_version(${atlas_VERSION_STR} PREFIX ATLAS4PY_ATLAS)
 endmacro()
