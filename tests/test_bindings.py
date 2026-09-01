@@ -233,6 +233,15 @@ def test_config_mapping_protocol():
     assert len(config) == 3
 
 
+def test_config_repr_roundtrip():
+    config = atlas4py.Config(option1="value1", option2=42, option3=3.14)
+
+    reconstructed = eval(repr(config))
+
+    assert isinstance(reconstructed, atlas4py.Config)
+    assert dict(reconstructed) == dict(config)
+
+
 def test_config_eckit_base_classes_are_private():
     extension = atlas4py._atlas4py
 
@@ -265,6 +274,22 @@ def test_config_constructor_with_kwargs():
     assert config["option3"] == 3.14
     assert config.keys() == ["option1", "option2", "option3"]
 
+
+def test_config_constructor_with_mapping():
+    from collections import UserDict
+
+    values = {"option1": "value1", "option2": 42}
+
+    assert dict(atlas4py.Config(values)) == values
+    assert dict(atlas4py.Config(UserDict(values))) == values
+
+    with pytest.raises(TypeError, match="expected a mapping"):
+        atlas4py.Config(object())
+
+    for values in ({1: "value"}, {"nested": {1: "value"}}, {"nested": [{1: "value"}]}):
+        with pytest.raises(TypeError, match="configuration keys must be strings"):
+            atlas4py.Config(values)
+
 def test_config_from_yaml():
     yaml_string = """
 option1: value1
@@ -293,7 +318,7 @@ def test_config_null_from_yaml():
     assert "a" in config
     assert config["a"] is None
     assert dict(config) == {"a": None}
-    assert repr(config) == "_atlas4py.Config({'a': None})"
+    assert repr(config) == "atlas4py.Config({'a': None})"
 
 
 def test_config_boolean_list_roundtrip_from_yaml():

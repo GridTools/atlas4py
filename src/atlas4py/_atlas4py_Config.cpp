@@ -155,6 +155,7 @@ nb::object _toPyObject( eckit::Configuration const& v ) {
     return ret;
 }
 
+void config_update( eckit::LocalConfiguration& config, nb::handle mapping );
 
 void config_set( eckit::LocalConfiguration& config, const std::string& key, nb::handle value ) {
     auto py_type_str = [](nb::handle h) -> std::string {
@@ -202,10 +203,7 @@ void config_set( eckit::LocalConfiguration& config, const std::string& key, nb::
             std::vector<eckit::LocalConfiguration> vec;
             for (size_t i = 0; i < n; ++i) {
                 eckit::LocalConfiguration subconfig;
-                nb::object mapping = nb::cast<nb::object>(seq[i]);
-                for (nb::handle item : mapping.attr("keys")()) {
-                    config_set(subconfig, nb::cast<std::string>(item), mapping[item]);
-                }
+                config_update(subconfig, seq[i]);
                 vec.push_back(subconfig);
             }
             config.set(key, vec);
@@ -214,13 +212,22 @@ void config_set( eckit::LocalConfiguration& config, const std::string& key, nb::
         }
     } else if (nb::isinstance<nb::mapping>(value)) {
         eckit::LocalConfiguration subconfig;
-        nb::object mapping = nb::cast<nb::object>(value);
-        for (nb::handle item : mapping.attr("keys")()) {
-            config_set(subconfig, nb::cast<std::string>(item), mapping[item]);
-        }
+        config_update(subconfig, value);
         config.set(key, subconfig);
     } else {
         throw nb::type_error(("type of value unsupported for key '" + key + "': got type '" + py_type_str(value) + "'").c_str());
+    }
+}
+
+void config_update( eckit::LocalConfiguration& config, nb::handle mapping ) {
+    if ( !nb::isinstance<nb::mapping>( mapping ) ) {
+        throw nb::type_error( "expected a mapping" );
+    }
+    for ( nb::handle key : mapping.attr( "keys" )() ) {
+        if ( !nb::isinstance<nb::str>( key ) ) {
+            throw nb::type_error( "configuration keys must be strings" );
+        }
+        config_set( config, nb::cast<std::string>( key ), mapping[key] );
     }
 }
 
@@ -276,13 +283,13 @@ void atlas4py::bind_Config( nb::module_& m ) {
 
      nb::class_<atlas::util::Config, eckit::LocalConfiguration>( m, "Config" )
         .def( nb::init() )
+        .def( "__init__", []( atlas::util::Config* config, nb::object mapping ) {
+            new ( config ) atlas::util::Config();
+            config_update( *config, mapping );
+        }, "mapping"_a )
         .def( "__init__", []( atlas::util::Config* config, nb::kwargs kwargs ) {
             new ( config ) atlas::util::Config();
-            for( const auto& pair : kwargs ) {
-                const auto key = nb::cast<std::string>(pair.first);
-                const auto& value = pair.second;
-                config_set(*config, key, value);
-            }
+            config_update( *config, kwargs );
         } )
         .def_static( "from_yaml", []( std::string const& yaml ) {
             return atlas::util::Config( eckit::YAMLConfiguration(yaml) );
@@ -304,6 +311,6 @@ void atlas4py::bind_Config( nb::module_& m ) {
         "Load a configuration file using eckit's YAML parser. Both YAML and JSON are supported; "
         "format is an allowed-value guard and does not select a parser or validate the file contents." )
         .def( "__repr__", []( atlas::util::Config const& config ) {
-            return "_atlas4py.Config("_s + nb::str( make_object( config ) ) + ")"_s;
+            return "atlas4py.Config("_s + nb::str( make_object( config ) ) + ")"_s;
         } );
 }

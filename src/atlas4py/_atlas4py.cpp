@@ -474,7 +474,7 @@ NB_MODULE( _atlas4py, m ) {
 
     nb::class_<util::Metadata, eckit::LocalConfiguration>( m, "Metadata" )
         .def( "__repr__", []( util::Metadata const& metadata ) {
-            return "_atlas4py.Metadata("_s + nb::str( atlas4py::make_object( metadata ) ) + ")"_s;
+            return "atlas4py.Metadata("_s + nb::str( atlas4py::make_object( metadata ) ) + ")"_s;
         } );
 
     nb::class_<mesh::Nodes::Topology> topology( m, "Topology" );
