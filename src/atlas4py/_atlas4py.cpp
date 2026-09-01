@@ -353,6 +353,7 @@ NB_MODULE( _atlas4py, m ) {
                 if (i > 0) oss << ", ";
                 oss << field.shape()[i];
             }
+            if (field.shape().size() == 1) oss << ",";
             oss << ")"
                 << " dtype=" << atlas4py::dtype::to_python_name(field.datatype())
                 << ">";
