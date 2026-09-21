@@ -1,7 +1,7 @@
+import atlas4py
 import numpy as np
 import pytest
 
-import atlas4py
 
 
 # -- Fixtures --
@@ -137,6 +137,22 @@ def test_field_generation(structured_in_and_out_fields):
     assert np.allclose(in_view + 1, out_view)
 
 
+def test_metadata_mapping_protocol(structured_in_and_out_fields):
+    field, _ = structured_in_and_out_fields
+    metadata = field.metadata
+    metadata["source"] = "test"
+    metadata["level"] = 1
+
+    values = dict(metadata)
+    assert values["source"] == "test"
+    assert values["level"] == 1
+    assert list(values) == metadata.keys()
+    assert list(metadata) == metadata.keys()
+    assert len(metadata) == len(values)
+    assert "source" in metadata
+    assert metadata["source"] == "test"
+
+
 def test_field_array_accepts_matching_dtype_and_false_copy(structured_in_and_out_fields):
     in_f, _ = structured_in_and_out_fields
 
@@ -162,3 +178,237 @@ def test_gmsh_output(structured_mesh):
 
     # Clean up the output file
     os.remove(output_file)
+
+def test_config_set_python_types():
+    from atlas4py import Config
+
+    # Flat types
+    c = Config()
+    c["int"] = 42
+    c["float"] = 3.14
+    c["bool"] = True
+    c["str"] = "hello"
+    c["int_list"] = [1, 2, 3]
+    c["float_list"] = [1.1, 2.2, 3.3]
+    c["str_list"] = ["a", "b", "c"]
+    c["bool_list"] = [True, False, True]
+
+    # Nested dict (mapping protocol)
+    c["nested"] = {"x": 1, "y": 2}
+    # List of dicts (sequence of mappings)
+    c["list_of_dicts"] = [{"a": 1}, {"b": 2}]
+
+    # Retrieve and check
+    assert c["int"] == 42
+    assert c["float"] == pytest.approx(3.14)
+    assert c["bool"] is True
+    assert c["str"] == "hello"
+    assert c["int_list"] == [1, 2, 3]
+    assert c["float_list"] == pytest.approx([1.1, 2.2, 3.3])
+    assert c["str_list"] == ["a", "b", "c"]
+    assert c["bool_list"] == [True, False, True]
+    assert dict(c["nested"]) == {"x": 1, "y": 2}
+    assert [dict(d) for d in c["list_of_dicts"]] == [{"a": 1}, {"b": 2}]
+
+def test_config_contains():
+    config = atlas4py.Config(option1="value1", option2=42)
+    assert "option1" in config
+    assert "option2" in config
+    assert "option3" not in config
+    # dotted path lookup
+    config["outer.inner"] = 1
+    assert "outer" in config
+    assert "outer.inner" in config
+    assert "outer.missing" not in config
+
+
+def test_config_mapping_protocol():
+    config = atlas4py.Config(option1="value1", option2=42, option3=3.14)
+    # dict() uses keys() + __getitem__
+    d = dict(config)
+    assert d == {"option1": "value1", "option2": 42, "option3": 3.14}
+    # __iter__
+    assert list(config) == config.keys()
+    # __len__
+    assert len(config) == 3
+
+
+def test_config_repr_roundtrip():
+    config = atlas4py.Config(option1="value1", option2=42, option3=3.14)
+
+    reconstructed = eval(repr(config))
+
+    assert isinstance(reconstructed, atlas4py.Config)
+    assert dict(reconstructed) == dict(config)
+
+
+def test_config_eckit_base_classes_are_private():
+    extension = atlas4py._atlas4py
+
+    assert not hasattr(atlas4py, "_eckit_Configuration")
+    assert not hasattr(atlas4py, "_eckit_LocalConfiguration")
+    assert extension._eckit_Configuration.__module__ == "atlas4py._atlas4py"
+    assert extension._eckit_LocalConfiguration.__module__ == "atlas4py._atlas4py"
+    assert atlas4py.Config.__mro__[1:3] == (
+        extension._eckit_LocalConfiguration,
+        extension._eckit_Configuration,
+    )
+
+
+def test_config_mapping_errors():
+    config = atlas4py.Config()
+
+    with pytest.raises(KeyError, match="missing"):
+        config["missing"]
+
+    for value in (None, object(), [object()]):
+        with pytest.raises(TypeError):
+            config["unsupported"] = value
+
+
+def test_config_constructor_with_kwargs():
+    config = atlas4py.Config(option1="value1", option2=42)
+    config["option3"] = 3.14
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["option3"] == 3.14
+    assert config.keys() == ["option1", "option2", "option3"]
+
+
+def test_config_constructor_with_mapping():
+    from collections import UserDict
+
+    values = {"option1": "value1", "option2": 42}
+
+    assert dict(atlas4py.Config(values)) == values
+    assert dict(atlas4py.Config(UserDict(values))) == values
+
+    with pytest.raises(TypeError, match="expected a mapping"):
+        atlas4py.Config(object())
+
+    for values in ({1: "value"}, {"nested": {1: "value"}}, {"nested": [{1: "value"}]}):
+        with pytest.raises(TypeError, match="configuration keys must be strings"):
+            atlas4py.Config(values)
+
+def test_config_from_yaml():
+    yaml_string = """
+option1: value1
+option2: 42
+outer:
+  inner_option1: 3.14
+  inner_option2: true
+"""
+    config = atlas4py.Config.from_yaml(yaml_string)
+    config["outer.inner_option3"] = "added_value"
+
+    assert config.keys() == ["option1", "option2", "outer"]
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["outer.inner_option1"] == 3.14
+    assert config["outer.inner_option2"] is True
+    outer = config["outer"]
+    assert outer["inner_option1"] == 3.14
+    assert outer["inner_option2"] is True
+    assert outer["inner_option3"] == "added_value"
+
+
+def test_config_null_from_yaml():
+    config = atlas4py.Config.from_yaml("a: null")
+
+    assert "a" in config
+    assert config["a"] is None
+    assert dict(config) == {"a": None}
+    assert repr(config) == "atlas4py.Config({'a': None})"
+
+
+def test_config_boolean_list_roundtrip_from_yaml():
+    yaml_string = """
+flags:
+  - true
+  - false
+  - true
+"""
+    config = atlas4py.Config.from_yaml(yaml_string)
+
+    flags = config["flags"]
+    assert flags == [True, False, True]
+    assert all(isinstance(flag, bool) for flag in flags)
+
+
+def test_config_boolean_list_roundtrip_from_json(tmp_path):
+    test_config_json = tmp_path / "test_config.json"
+    test_config_json.write_text(
+        """
+{
+  "flags": [true, false, true]
+}
+"""
+    )
+
+    config = atlas4py.Config.from_file(test_config_json, format="json")
+
+    flags = config["flags"]
+    assert flags == [True, False, True]
+    assert all(isinstance(flag, bool) for flag in flags)
+
+
+def test_config_boolean_list_roundtrip_from_json_string():
+    json_string = """
+{
+  "flags": [true, false, true]
+}
+"""
+    config = atlas4py.Config.from_json(json_string)
+
+    flags = config["flags"]
+    assert flags == [True, False, True]
+    assert all(isinstance(flag, bool) for flag in flags)
+
+
+def test_config_from_file(tmp_path):
+    test_config_yaml = tmp_path / "test_config.yaml"
+    with open(test_config_yaml, "w") as f:
+        f.write(
+            """
+option1: value1
+option2: 42
+outer:
+    inner_option1: 3.14
+    inner_option2: true
+"""
+        )
+    config = atlas4py.Config.from_file(test_config_yaml)
+    config["outer.inner_option3"] = "added_value"
+
+    assert config.keys() == ["option1", "option2", "outer"]
+    assert config["option1"] == "value1"
+    assert config["option2"] == 42
+    assert config["outer.inner_option1"] == 3.14
+    assert config["outer.inner_option2"] is True
+    outer = config["outer"]
+    assert outer["inner_option1"] == 3.14
+    assert outer["inner_option2"] is True
+    assert outer["inner_option3"] == "added_value"
+
+
+def test_config_from_file_rejects_non_pathlike_object(tmp_path):
+    test_config_yaml = tmp_path / "test_config.yaml"
+    test_config_yaml.write_text("option: value")
+
+    class StringConvertiblePath:
+        def __str__(self):
+            return str(test_config_yaml)
+
+    with pytest.raises(TypeError, match="expected str, bytes or os.PathLike object"):
+        atlas4py.Config.from_file(StringConvertiblePath())
+
+
+def test_config_from_file_format_is_guard(tmp_path):
+    test_config_yaml = tmp_path / "test_config.yaml"
+    test_config_yaml.write_text("option: value")
+
+    assert atlas4py.Config.from_file(test_config_yaml, format="json")["option"] == "value"
+    with pytest.raises(ValueError, match="Only 'yaml' or 'json'"):
+        atlas4py.Config.from_file(test_config_yaml, format="toml")
+
+    assert "does not select a parser or validate the file contents" in atlas4py.Config.from_file.__doc__
